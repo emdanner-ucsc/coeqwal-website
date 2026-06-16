@@ -38,6 +38,8 @@ import type { EquityState } from "./equityStoreSlice"
 import { equityInitialState } from "./equityStoreSlice"
 import type { ResilienceState } from "./resilienceStoreSlice"
 import { resilienceInitialState } from "./resilienceStoreSlice"
+import type { DataInDepthState } from "./dataInDepthStoreSlice"
+import { dataInDepthInitialState } from "./dataInDepthStoreSlice"
 import type { WorkspaceState } from "./workspaceStoreSlice"
 import { workspaceInitialState } from "./workspaceStoreSlice"
 import {
@@ -53,6 +55,7 @@ import type { ListSlice } from "./listStoreSlice"
 import type { RadarSlice } from "./radarStoreSlice"
 import type { EquitySlice } from "./equityStoreSlice"
 import type { ResilienceSlice } from "./resilienceStoreSlice"
+import type { DataInDepthSlice } from "./dataInDepthStoreSlice"
 import type { ExploreMode, OutcomeDisplayMode } from "./types"
 import { hasTourFor, type TourTool } from "../tools/tour/registry"
 import {
@@ -70,7 +73,8 @@ type ExplorerStore = WorkspaceSlice &
   ListSlice &
   RadarSlice &
   EquitySlice &
-  ResilienceSlice
+  ResilienceSlice &
+  DataInDepthSlice
 
 export interface PersistedExploreSession {
   version: number
@@ -86,6 +90,7 @@ export interface PersistedExploreSession {
   > & {
     resilienceSelectedHydroclimates?: ResilienceHydroclimatePersisted
   }
+  dataInDepth: Partial<DataInDepthState>
 }
 
 export interface ExploreSessionHydration {
@@ -95,6 +100,7 @@ export interface ExploreSessionHydration {
   radar: Partial<RadarState>
   equity: Partial<EquityState>
   resilience: Partial<ResilienceState>
+  dataInDepth: Partial<DataInDepthState>
 }
 
 const DEFAULT_SHELL: ShellPersistedState = { mainView: "get-started" }
@@ -106,6 +112,7 @@ const EMPTY_HYDRATION: ExploreSessionHydration = {
   radar: {},
   equity: {},
   resilience: {},
+  dataInDepth: {},
 }
 
 const EXPLORE_MODES = new Set<ExploreMode>([
@@ -319,6 +326,9 @@ function migrateEnvelope(
     radar: isRecord(env.radar) ? (env.radar as Partial<RadarState>) : {},
     equity: isRecord(env.equity) ? (env.equity as Partial<EquityState>) : {},
     resilience: validateResiliencePersistedSection(env.resilience),
+    dataInDepth: isRecord(env.dataInDepth)
+      ? (env.dataInDepth as Partial<DataInDepthState>)
+      : {},
   }
 }
 
@@ -346,6 +356,7 @@ function readPersistedEnvelope(): PersistedExploreSession {
       radar: {},
       equity: {},
       resilience: {},
+      dataInDepth: {},
     }
   }
   return migrateEnvelope(parsed)
@@ -364,6 +375,7 @@ export function loadExploreSessionState(): ExploreSessionHydration {
       radar: envelope.radar,
       equity: envelope.equity,
       resilience: validateResilienceHydration(envelope.resilience),
+      dataInDepth: envelope.dataInDepth,
     }
   } catch {
     return EMPTY_HYDRATION
@@ -395,6 +407,7 @@ export function saveExploreSessionState(
       radar: { ...current.radar, ...partial.radar },
       equity: { ...current.equity, ...partial.equity },
       resilience: { ...current.resilience, ...partial.resilience },
+      dataInDepth: { ...current.dataInDepth, ...partial.dataInDepth },
     }
     sessionStorage.setItem(EXPLORE_SESSION_STORAGE_KEY, JSON.stringify(merged))
   } catch {
@@ -436,4 +449,10 @@ export function mergeResilienceInitialState(
   hydration: Partial<ResilienceState>,
 ): ResilienceState {
   return { ...resilienceInitialState, ...hydration }
+}
+
+export function mergeDataInDepthInitialState(
+  hydration: Partial<DataInDepthState>,
+): DataInDepthState {
+  return { ...dataInDepthInitialState, ...hydration }
 }

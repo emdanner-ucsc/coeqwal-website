@@ -14,17 +14,20 @@ import { createListSlice } from "./listStoreSlice"
 import { createRadarSlice } from "./radarStoreSlice"
 import { createEquitySlice } from "./equityStoreSlice"
 import { createResilienceSlice } from "./resilienceStoreSlice"
+import { createDataInDepthSlice } from "./dataInDepthStoreSlice"
 import type { WorkspaceSlice } from "./workspaceStoreSlice"
 import type { ListSlice } from "./listStoreSlice"
 import type { RadarSlice } from "./radarStoreSlice"
 import type { EquitySlice } from "./equityStoreSlice"
 import type { ResilienceSlice } from "./resilienceStoreSlice"
+import type { DataInDepthSlice } from "./dataInDepthStoreSlice"
 import {
   loadExploreSessionState,
   mergeEquityInitialState,
   mergeListInitialState,
   mergeRadarInitialState,
   mergeResilienceInitialState,
+  mergeDataInDepthInitialState,
   mergeWorkspaceInitialState,
   saveExploreSessionState,
 } from "./exploreSessionPersist"
@@ -34,7 +37,8 @@ export type ExplorerStore = WorkspaceSlice &
   ListSlice &
   RadarSlice &
   EquitySlice &
-  ResilienceSlice
+  ResilienceSlice &
+  DataInDepthSlice
 
 const exploreSession = loadExploreSessionState()
 
@@ -50,6 +54,10 @@ export const useExplorerStore = create<ExplorerStore>()(
     ...createResilienceSlice(
       set,
       mergeResilienceInitialState(exploreSession.resilience),
+    ),
+    ...createDataInDepthSlice(
+      set,
+      mergeDataInDepthInitialState(exploreSession.dataInDepth),
     ),
   })),
 )

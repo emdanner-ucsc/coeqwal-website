@@ -34,12 +34,17 @@ import type { ListSlice, ListState } from "./listStoreSlice"
 import type { RadarSlice, RadarState } from "./radarStoreSlice"
 import type { EquitySlice, EquityState } from "./equityStoreSlice"
 import type { ResilienceSlice, ResilienceState } from "./resilienceStoreSlice"
+import type {
+  DataInDepthSlice,
+  DataInDepthState,
+} from "./dataInDepthStoreSlice"
 
 type ExplorerStore = WorkspaceSlice &
   ListSlice &
   RadarSlice &
   EquitySlice &
-  ResilienceSlice
+  ResilienceSlice &
+  DataInDepthSlice
 
 export type ShellMainView = "get-started" | "explorer"
 
@@ -145,6 +150,21 @@ export const RESILIENCE_PERSIST_KEYS = [
   "resilienceTransposed",
   "resilienceAggregateOver",
 ] as const satisfies readonly (keyof ResilienceState)[]
+
+/** Data In-Depth tool settings restored after reload */
+export const DATA_IN_DEPTH_PERSIST_KEYS = [
+  "selectedVariableId",
+  "view",
+  "distKind",
+  "compareBy",
+  "selectedScenarioIds",
+  "pinnedScenarioId",
+  "selectedClimates",
+  "pinnedClimate",
+  "selectedLocations",
+  "pinnedLocation",
+  "scenarioMenuGrouping",
+] as const satisfies readonly (keyof DataInDepthState)[]
 
 /** List fields kept in memory only (not written to sessionStorage) */
 export const LIST_EPHEMERAL_STATE_KEYS = [
@@ -258,6 +278,24 @@ const RESILIENCE_ACTION_KEYS = [
   "setResilienceAggregateOver",
 ] as const satisfies readonly (keyof ResilienceSlice)[]
 
+const DATA_IN_DEPTH_ACTION_KEYS = [
+  "setSelectedVariableId",
+  "setView",
+  "setDistKind",
+  "setCompareBy",
+  "setSelectedScenarioIds",
+  "addSelectedScenario",
+  "removeSelectedScenario",
+  "setPinnedScenarioId",
+  "setSelectedClimates",
+  "toggleClimate",
+  "setPinnedClimate",
+  "setSelectedLocations",
+  "toggleLocation",
+  "setPinnedLocation",
+  "setScenarioMenuGrouping",
+] as const satisfies readonly (keyof DataInDepthSlice)[]
+
 function pickKeys<T extends object, K extends keyof T>(
   state: T,
   keys: readonly K[],
@@ -295,6 +333,12 @@ export function pickEquityPersistedState(
   state: EquityState,
 ): Partial<EquityState> {
   return pickKeys(state, EQUITY_PERSIST_KEYS)
+}
+
+export function pickDataInDepthPersistedState(
+  state: DataInDepthState,
+): Partial<DataInDepthState> {
+  return pickKeys(state, DATA_IN_DEPTH_PERSIST_KEYS)
 }
 
 export function pickResiliencePersistedState(state: ResilienceState): Partial<
@@ -355,6 +399,13 @@ export function pickResilienceSlice(state: ExplorerStore): ResilienceSlice {
   }
 }
 
+export function pickDataInDepthSlice(state: ExplorerStore): DataInDepthSlice {
+  return {
+    ...pickKeys(state, DATA_IN_DEPTH_PERSIST_KEYS),
+    ...pickKeys(state, DATA_IN_DEPTH_ACTION_KEYS),
+  }
+}
+
 export function pickExplorerPersistedSession(state: ExplorerStore) {
   return {
     workspace: pickWorkspacePersistedState(state),
@@ -362,5 +413,6 @@ export function pickExplorerPersistedSession(state: ExplorerStore) {
     radar: pickRadarPersistedState(state),
     equity: pickEquityPersistedState(state),
     resilience: pickResiliencePersistedState(state),
+    dataInDepth: pickDataInDepthPersistedState(state),
   }
 }
