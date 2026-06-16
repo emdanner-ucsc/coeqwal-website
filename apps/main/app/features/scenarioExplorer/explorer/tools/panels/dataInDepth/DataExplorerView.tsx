@@ -215,6 +215,9 @@ export default function DataExplorerView({
             <Typography
               variant="caption"
               sx={{
+                display: "block",
+                px: 1,
+                mb: 0.25,
                 color: theme.palette.text.secondary,
                 fontWeight: 600,
                 textTransform: "uppercase",
@@ -223,7 +226,7 @@ export default function DataExplorerView({
             >
               {sector.name}
             </Typography>
-            <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+            <Stack spacing={0.25} sx={{ mt: 0.5 }}>
               {sector.locked || !sector.vars ? (
                 <Typography
                   variant="caption"
@@ -241,6 +244,12 @@ export default function DataExplorerView({
                       onClick={() => setSelectedVariableId(vid)}
                       sx={{
                         justifyContent: "flex-start",
+                        textAlign: "left",
+                        width: "100%",
+                        px: 1,
+                        py: 0.5,
+                        lineHeight: 1.3,
+                        whiteSpace: "normal",
                         textTransform: "none",
                         fontWeight: selected ? 600 : 400,
                         color: selected
