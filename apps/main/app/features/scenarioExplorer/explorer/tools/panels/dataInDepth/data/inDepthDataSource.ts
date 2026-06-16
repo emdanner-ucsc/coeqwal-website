@@ -38,8 +38,8 @@ import type {
 import type { SeriesStats } from "../synthetic/inDepthSyntheticEngine"
 import type { CompareBy } from "../../../../store"
 
-/** Where a member's box numbers came from. */
-export type DataSource = "synthetic" | "live"
+/** Where a member's numbers came from. "file" = precomputed CalSim sidecar. */
+export type DataSource = "synthetic" | "live" | "file"
 
 /** Five-number summary the box plot draws, plus a label for the inner band. */
 export interface BoxStats {
@@ -154,6 +154,7 @@ export function applyLiveStorage(
   const pct = ctx.view === "pct"
 
   return members.map((m) => {
+    if (m.source !== "synthetic") return m // a fuller source (file) already won
     const shortCode = ctx.groupToShortCode[m.scenarioId]
     if (!shortCode) return m
     const monthly = reservoirPercentiles(
@@ -171,4 +172,100 @@ export function applyLiveStorage(
 /** True when at least one member is showing live data. */
 export function hasLiveMember(members: ChartMember[]): boolean {
   return members.some((m) => m.source === "live")
+}
+
+// ----------------------------------------------------------------------------
+// Precomputed CalSim sidecar (file) source
+//
+// A sidecar holds the ANNUAL series the statistics API can't provide — one value
+// per water year, reduced offline from the raw 280 MB CalSim CSV (see
+// tools/extract_calsim_sidecar.py). Because it carries the full series, it powers
+// BOTH the exceedance curve and the box from real data.
+// ----------------------------------------------------------------------------
+
+export interface CalsimSidecar {
+  scenario: string
+  startWaterYear: number
+  nYears: number
+  /** variableId -> locationId -> annual series (one value per water year). */
+  series: Record<string, Record<string, number[]> | undefined>
+}
+
+function quantileSorted(sorted: number[], p: number): number {
+  if (sorted.length === 0) return NaN
+  const i = (sorted.length - 1) * p
+  const lo = Math.floor(i)
+  const hi = Math.ceil(i)
+  const a = sorted[lo] ?? 0
+  const b = sorted[hi] ?? a
+  return a + (b - a) * (i - lo)
+}
+
+/** Box five-number summary from a raw annual series (p10/p25/p50/p75/p90). */
+export function boxFromSeries(series: number[]): BoxStats {
+  const s = [...series].sort((a, b) => a - b)
+  return {
+    whiskerLo: quantileSorted(s, 0.1),
+    boxLo: quantileSorted(s, 0.25),
+    mid: quantileSorted(s, 0.5),
+    boxHi: quantileSorted(s, 0.75),
+    whiskerHi: quantileSorted(s, 0.9),
+    innerLabel: "25th–75th",
+  }
+}
+
+export interface FileSeriesContext {
+  variableId: InDepthVariableId
+  view: InDepthViewId
+  /** Loaded sidecars keyed by scenario code. */
+  sidecars: Record<string, CalsimSidecar | undefined>
+  /** Resolve a member's scenarioId to the sidecar code (direct, then group→short). */
+  groupToShortCode: Record<string, string | null>
+  /** Reservoir capacity (TAF) by location id, for the `pct` view. */
+  capForLocation?: (locationId: string) => number | undefined
+}
+
+/**
+ * Replace each member's series + box with the precomputed CalSim sidecar where
+ * available. Carries the full annual series, so the exceedance curve becomes
+ * real too. Members without sidecar coverage keep their synthetic numbers.
+ */
+export function applyFileSeries(
+  members: ChartMember[],
+  ctx: FileSeriesContext,
+): ChartMember[] {
+  const pct = ctx.view === "pct"
+  return members.map((m) => {
+    const code = ctx.sidecars[m.scenarioId]
+      ? m.scenarioId
+      : (ctx.groupToShortCode[m.scenarioId] ?? "")
+    const sidecar = code ? ctx.sidecars[code] : undefined
+    const raw = sidecar?.series[ctx.variableId]?.[m.locationId]
+    if (!raw || raw.length === 0) return m
+    let series = raw
+    if (pct) {
+      const cap = ctx.capForLocation?.(m.locationId)
+      if (cap && cap > 0) series = raw.map((v) => (v / cap) * 100)
+    }
+    return { ...m, series, box: boxFromSeries(series), source: "file" }
+  })
+}
+
+/** Scenario codes a sidecar might exist for, given the current selection. */
+export function sidecarCodes(
+  selectedScenarioIds: string[],
+  resolvedIds: string[],
+  pinnedScenarioId: string,
+): string[] {
+  const isCode = (id: string) => /^s\d+$/.test(id)
+  const set = new Set<string>()
+  for (const id of selectedScenarioIds) if (isCode(id)) set.add(id)
+  for (const id of resolvedIds) set.add(id)
+  if (isCode(pinnedScenarioId)) set.add(pinnedScenarioId)
+  return [...set]
+}
+
+/** True when at least one member is showing precomputed file data. */
+export function hasFileMember(members: ChartMember[]): boolean {
+  return members.some((m) => m.source === "file")
 }

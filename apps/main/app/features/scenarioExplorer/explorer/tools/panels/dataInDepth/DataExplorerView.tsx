@@ -44,6 +44,7 @@ import {
   CLIMATES,
   LOCGROUPS,
   SCENARIOS,
+  findLocation,
   findScenario,
 } from "./synthetic/inDepthSyntheticEngine"
 import {
@@ -51,8 +52,15 @@ import {
   defaultSelectedLocations,
   memberUnit,
 } from "./synthetic/inDepthSyntheticAdapter"
-import { applyLiveStorage, hasLiveMember } from "./data/inDepthDataSource"
+import {
+  applyFileSeries,
+  applyLiveStorage,
+  hasFileMember,
+  hasLiveMember,
+  sidecarCodes,
+} from "./data/inDepthDataSource"
 import { useResolvedSelectedScenarios } from "./hooks/useResolvedSelectedScenarios"
+import { useCalsimSidecars } from "./hooks/useCalsimSidecars"
 import { useBatchStatistics } from "@repo/data/coeqwal/hooks"
 import DistributionChart from "./components/DistributionChart"
 
@@ -123,16 +131,33 @@ export default function DataExplorerView({
     pinnedLocation: slice.pinnedLocation,
   })
 
-  // One batched fetch (decision: storage first; other covered families follow).
-  // Resolves the global selection to scenario short_codes at the map hydroclimate.
+  // Resolve the global selection to scenario short_codes at the map hydroclimate.
   const { resolvedIds, groupToResolved } = useResolvedSelectedScenarios()
+
+  // Precomputed CalSim sidecars (annual series reduced from the raw CSV). These
+  // carry the FULL series, so they back the exceedance curve AND the box.
+  const codes = sidecarCodes(
+    selectedScenarioIds,
+    resolvedIds,
+    slice.pinnedScenarioId,
+  )
+  const sidecars = useCalsimSidecars(codes)
+
+  // One batched API fetch (storage percentiles) — backs the box where no sidecar.
   const { data: batchData } = useBatchStatistics(resolvedIds, {
     types: ["storage"],
   })
 
-  // Swap the box to live reservoir-storage percentiles where available; the
-  // exceedance curve stays synthetic (the API has no raw annual series).
-  const members = applyLiveStorage(syntheticMembers, {
+  // Layer the real sources over synthetic: precomputed file first (fullest), then
+  // the live-API storage box for any member the file didn't cover.
+  const fileMembers = applyFileSeries(syntheticMembers, {
+    variableId: selectedVariableId,
+    view,
+    sidecars,
+    groupToShortCode: groupToResolved,
+    capForLocation: (locId) => findLocation(group, locId)?.cap,
+  })
+  const members = applyLiveStorage(fileMembers, {
     variableId: selectedVariableId,
     view,
     compareBy,
@@ -142,6 +167,7 @@ export default function DataExplorerView({
 
   const unit = memberUnit(selectedVariableId, view)
   const isDistribution = view === "dist" || view === "pct"
+  const fileActive = hasFileMember(members)
   const boxIsLive =
     distKind === "box" && isDistribution && hasLiveMember(members)
   const innerBandLabel = members[0]?.box.innerLabel ?? "25th–75th"
@@ -218,7 +244,13 @@ export default function DataExplorerView({
       <Box
         sx={{ flex: 1, minWidth: 0, overflowY: "auto", p: { xs: 2, md: 3 } }}
       >
-        {boxIsLive ? (
+        {fileActive ? (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Real CalSim 3 data — drawn from raw model output (precomputed) for
+            the scenarios that have it. Scenarios or variables without it fall
+            back to the synthetic stand-in, labelled below.
+          </Alert>
+        ) : boxIsLive ? (
           <Alert severity="info" sx={{ mb: 2 }}>
             Live preview — this box plot is drawn from real CalSim 3 storage
             statistics at the current hydroclimate. The exceedance curve and all
@@ -316,20 +348,23 @@ export default function DataExplorerView({
                   mode={distKind}
                   unit={unit}
                 />
-                {distKind === "box" && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      display: "block",
-                      mt: 0.5,
-                      color: theme.palette.text.secondary,
-                    }}
-                  >
-                    Box spans the {innerBandLabel} percentiles; whiskers reach
-                    the 10th–90th.{" "}
-                    {boxIsLive ? "Live CalSim 3 data." : "Synthetic."}
-                  </Typography>
-                )}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    mt: 0.5,
+                    color: theme.palette.text.secondary,
+                  }}
+                >
+                  {distKind === "box"
+                    ? `Box spans the ${innerBandLabel} percentiles; whiskers reach the 10th–90th. `
+                    : "Each curve is one member's full annual distribution. "}
+                  {fileActive
+                    ? "Real CalSim 3 data (precomputed from raw output)."
+                    : boxIsLive
+                      ? "Live CalSim 3 storage statistics."
+                      : "Synthetic stand-in data."}
+                </Typography>
               </>
             ) : (
               <Typography
