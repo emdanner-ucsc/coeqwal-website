@@ -80,15 +80,24 @@ const DistributionChart: React.FC<DistributionChartProps> = React.memo(
       [members],
     )
 
-    // y-domain with the prototype's padding rules.
+    // y-domain with the prototype's padding rules. Box mode spans the box
+    // five-number summaries (which may be live and exceed the synthetic series);
+    // exceedance mode spans the full sorted series.
     const { lo, hi } = useMemo(() => {
       let lo = Infinity
       let hi = -Infinity
-      sorted.forEach((s) => {
-        if (s.length === 0) return
-        lo = Math.min(lo, s[s.length - 1]!)
-        hi = Math.max(hi, s[0]!)
-      })
+      if (mode === "box") {
+        members.forEach((m) => {
+          lo = Math.min(lo, m.box.whiskerLo)
+          hi = Math.max(hi, m.box.whiskerHi)
+        })
+      } else {
+        sorted.forEach((s) => {
+          if (s.length === 0) return
+          lo = Math.min(lo, s[s.length - 1]!)
+          hi = Math.max(hi, s[0]!)
+        })
+      }
       if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
         lo = 0
         hi = 1
@@ -103,7 +112,7 @@ const DistributionChart: React.FC<DistributionChartProps> = React.memo(
       if (lo > 0 && lo / hi < 0.25) lo = 0
       if (lo === hi) hi = lo + 1
       return { lo, hi }
-    }, [sorted, unit])
+    }, [mode, members, sorted, unit])
 
     const xScale = useMemo(
       () => scaleLinear().domain([0, 100]).range([innerLeft, innerRight]),
@@ -302,22 +311,22 @@ const BoxLayer: React.FC<BoxLayerProps> = ({
     <>
       {members.map((m, i) => {
         const cx = innerLeft + slot * (i + 0.5)
-        const s = m.stats
+        const b = m.box
         return (
           <g key={m.key}>
             <line
               x1={cx}
               x2={cx}
-              y1={yScale(s.p90)}
-              y2={yScale(s.p10)}
+              y1={yScale(b.whiskerHi)}
+              y2={yScale(b.whiskerLo)}
               stroke={m.color}
               strokeWidth={1.5}
             />
             <rect
               x={cx - boxW / 2}
-              y={yScale(s.p75)}
+              y={yScale(b.boxHi)}
               width={boxW}
-              height={Math.max(1, yScale(s.p25) - yScale(s.p75))}
+              height={Math.max(1, yScale(b.boxLo) - yScale(b.boxHi))}
               fill={m.color}
               fillOpacity={0.18}
               stroke={m.color}
@@ -326,8 +335,8 @@ const BoxLayer: React.FC<BoxLayerProps> = ({
             <line
               x1={cx - boxW / 2}
               x2={cx + boxW / 2}
-              y1={yScale(s.p50)}
-              y2={yScale(s.p50)}
+              y1={yScale(b.mid)}
+              y2={yScale(b.mid)}
               stroke={m.color}
               strokeWidth={2.4}
             />

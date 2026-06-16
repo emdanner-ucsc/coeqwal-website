@@ -24,23 +24,10 @@ import {
   LOCGROUPS,
   MEMBER_PALETTE,
   stats,
-  type SeriesStats,
 } from "./inDepthSyntheticEngine"
+import { syntheticBox, type ChartMember } from "../data/inDepthDataSource"
 
-export interface ChartMember {
-  /** Stable key (scenario|climate|location). */
-  key: string
-  /** Legend label (the varying dimension's name). */
-  label: string
-  /** Member colour from the categorical palette. */
-  color: string
-  scenarioId: string
-  climateId: string
-  locationId: string
-  /** Annual series (already `pct`-scaled when the view is "% of capacity"). */
-  series: number[]
-  stats: SeriesStats
-}
+export type { ChartMember } from "../data/inDepthDataSource"
 
 export interface BuildMembersArgs {
   variableId: InDepthVariableId
@@ -125,7 +112,8 @@ export function buildMembers(args: BuildMembersArgs): ChartMember[] {
       climateId: spec.climateId,
       locationId: spec.locationId,
       series,
-      stats: stats(series),
+      box: syntheticBox(stats(series)),
+      source: "synthetic",
     }
   })
 }

@@ -1,0 +1,174 @@
+/**
+ * In-Depth Outcomes — data-source seam.
+ *
+ * The chart components consume a single member shape (`ChartMember`) regardless
+ * of where the numbers come from. This file defines that shape and the box
+ * five-number summary, and provides the SYNTHETIC → LIVE swap for the families
+ * that can be cleanly backed by the real `@repo/data` batch statistics today.
+ *
+ * Reality of the statistics API (confirmed against `@repo/data` types):
+ *  - It returns PERCENTILES only, never the raw per-year series. So the
+ *    exceedance curve (which needs the full sorted series) stays SYNTHETIC; only
+ *    the box plot can be drawn from live data.
+ *  - Storage percentiles are MONTHLY, keyed by water month (1 = Oct … 12 = Sep),
+ *    with the set q0/q10/q30/q50/q70/q90/q100. The "annual" April / September
+ *    storage distribution is exactly the April ("7") / September ("12") month
+ *    bin, so reservoir storage maps cleanly. The reservoir keys (e.g. "SHSTA",
+ *    "FOLSM") match the synthetic location ids.
+ *  - Other families (ag / cws / flows) need invented location-id → real-key
+ *    mappings and, for climate-compare, multi-hydroclimate fetches the single
+ *    batch can't serve, so they stay synthetic for now (decision: light up
+ *    reservoir storage first, extend family-by-family).
+ *
+ * Live wiring here is gated to the safe case — reservoir storage, scenario
+ * compare, distribution/percent view — and falls back to synthetic everywhere
+ * else. The live path is verified by type-checking and shape review here; it
+ * must be confirmed in the running app against the real API.
+ */
+
+import type {
+  BatchStatisticsResponse,
+  MonthlyPercentiles,
+  PercentileValues,
+} from "@repo/data/coeqwal"
+import type {
+  InDepthVariableId,
+  InDepthViewId,
+} from "../config/inDepthVariables"
+import type { SeriesStats } from "../synthetic/inDepthSyntheticEngine"
+import type { CompareBy } from "../../../../store"
+
+/** Where a member's box numbers came from. */
+export type DataSource = "synthetic" | "live"
+
+/** Five-number summary the box plot draws, plus a label for the inner band. */
+export interface BoxStats {
+  whiskerLo: number
+  boxLo: number
+  mid: number
+  boxHi: number
+  whiskerHi: number
+  /** Human-readable inner-band percentiles, e.g. "25th–75th" or "30th–70th". */
+  innerLabel: string
+}
+
+/** One line / box in a chart: its series (synthetic only), box, and provenance. */
+export interface ChartMember {
+  /** Stable key (scenario|climate|location). */
+  key: string
+  /** Legend label (the varying dimension's name). */
+  label: string
+  /** Member colour from the categorical palette. */
+  color: string
+  scenarioId: string
+  climateId: string
+  locationId: string
+  /** Annual series — SYNTHETIC only; drives the exceedance curve. */
+  series: number[]
+  /** Five-number summary for the box plot (synthetic or live). */
+  box: BoxStats
+  /** Where `box` came from. The exceedance view is always synthetic. */
+  source: DataSource
+}
+
+/** Synthetic box from the engine's percentile stats (p10/p25/p50/p75/p90). */
+export function syntheticBox(s: SeriesStats): BoxStats {
+  return {
+    whiskerLo: s.p10,
+    boxLo: s.p25,
+    mid: s.p50,
+    boxHi: s.p75,
+    whiskerHi: s.p90,
+    innerLabel: "25th–75th",
+  }
+}
+
+/** Live box from API percentile values (q10/q30/q50/q70/q90). */
+export function liveBox(pv: PercentileValues): BoxStats {
+  return {
+    whiskerLo: pv.q10,
+    boxLo: pv.q30,
+    mid: pv.q50,
+    boxHi: pv.q70,
+    whiskerHi: pv.q90,
+    innerLabel: "30th–70th",
+  }
+}
+
+/** Water-month bin (1 = Oct … 12 = Sep) whose distribution is the annual value. */
+const STORAGE_MONTH_BIN: Partial<Record<InDepthVariableId, string>> = {
+  res_apr: "7", // April
+  res_sep: "12", // September
+}
+
+/** Variables whose live box reads from the batch `storage` family. */
+export function isLiveStorageVariable(variableId: InDepthVariableId): boolean {
+  return variableId in STORAGE_MONTH_BIN
+}
+
+function reservoirPercentiles(
+  batch: BatchStatisticsResponse,
+  scenarioShortCode: string,
+  reservoirId: string,
+  pct: boolean,
+): MonthlyPercentiles | null {
+  const scenario = batch.storage?.[scenarioShortCode]
+  if (!scenario) return null
+  // Batch reservoirs are keyed by short id (e.g. "SHSTA"); tolerate the "S_" form.
+  const reservoirs = scenario.reservoirs
+  const entry =
+    reservoirs[reservoirId] ?? reservoirs[`S_${reservoirId}`] ?? undefined
+  if (!entry) return null
+  return pct ? entry.monthly_percent : entry.monthly_taf
+}
+
+export interface LiveStorageContext {
+  variableId: InDepthVariableId
+  view: InDepthViewId
+  compareBy: CompareBy
+  /** sibling-group id → resolved scenario short_code (from useResolvedSelectedScenarios). */
+  groupToShortCode: Record<string, string | null>
+  batch: BatchStatisticsResponse | undefined
+}
+
+/**
+ * Replace each eligible member's box with live reservoir-storage percentiles.
+ * Returns a new array; members that can't be served keep their synthetic box.
+ * Gated to reservoir storage + scenario-compare + distribution/percent view.
+ */
+export function applyLiveStorage(
+  members: ChartMember[],
+  ctx: LiveStorageContext,
+): ChartMember[] {
+  const eligibleView = ctx.view === "dist" || ctx.view === "pct"
+  if (
+    !ctx.batch ||
+    ctx.compareBy !== "scen" ||
+    !eligibleView ||
+    !isLiveStorageVariable(ctx.variableId)
+  ) {
+    return members
+  }
+  const monthKey = STORAGE_MONTH_BIN[ctx.variableId]
+  if (!monthKey) return members
+  const pct = ctx.view === "pct"
+
+  return members.map((m) => {
+    const shortCode = ctx.groupToShortCode[m.scenarioId]
+    if (!shortCode) return m
+    const monthly = reservoirPercentiles(
+      ctx.batch!,
+      shortCode,
+      m.locationId,
+      pct,
+    )
+    const pv = monthly?.[monthKey]
+    if (!pv) return m
+    return { ...m, box: liveBox(pv), source: "live" }
+  })
+}
+
+/** True when at least one member is showing live data. */
+export function hasLiveMember(members: ChartMember[]): boolean {
+  return members.some((m) => m.source === "live")
+}
