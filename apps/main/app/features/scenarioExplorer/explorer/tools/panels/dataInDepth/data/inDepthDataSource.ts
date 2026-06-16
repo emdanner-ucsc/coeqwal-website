@@ -200,6 +200,12 @@ export interface CalsimSidecar {
   nYears: number
   /** variableId -> locationId -> annual series (one value per water year). */
   series: Record<string, Record<string, number[]> | undefined>
+  /**
+   * variableId -> locationId -> raw NYEARS×12 monthly trace (monthly volume in
+   * TAF, water-year order, month 0 = Oct). Present only for the monthly-capable
+   * flow variables (ndo, riv_flow); absent otherwise.
+   */
+  monthly?: Record<string, Record<string, number[]> | undefined>
 }
 
 function quantileSorted(sorted: number[], p: number): number {
@@ -297,6 +303,68 @@ export function applyFileSeries(
       summaryValue: summaryOf(ctx.variableId, series),
       source: "file",
     }
+  })
+}
+
+// ----------------------------------------------------------------------------
+// Precomputed CalSim sidecar — monthly trace (file)
+//
+// The sidecar's `monthly` block carries the raw NYEARS×12 monthly volume (TAF)
+// for the monthly-capable flow variables (ndo, riv_flow). It powers the two
+// monthly views: the climatology band (p10/p50/p90 across years, per water-year
+// month) and the raw time-series trace. Same units as the synthetic monthly
+// engine (a month's share of the annual volume, in TAF), so the chart axis is
+// unchanged. Variables without a monthly block keep their synthetic monthly.
+// ----------------------------------------------------------------------------
+
+/** 12 water-year-month bands (p10/p50/p90 across all years) from a monthly trace. */
+export function monthlyBandsFromTrace(trace: number[]): MonthlyBand[] {
+  const bands: MonthlyBand[] = []
+  for (let m = 0; m < 12; m++) {
+    const col: number[] = []
+    for (let i = m; i < trace.length; i += 12) col.push(trace[i]!)
+    col.sort((a, b) => a - b)
+    bands.push({
+      p10: quantileSorted(col, 0.1),
+      p50: quantileSorted(col, 0.5),
+      p90: quantileSorted(col, 0.9),
+    })
+  }
+  return bands
+}
+
+export interface FileMonthlyContext {
+  variableId: InDepthVariableId
+  view: InDepthViewId
+  /** Loaded sidecars keyed by scenario code. */
+  sidecars: Record<string, CalsimSidecar | undefined>
+  /** Resolve a member's scenarioId to the sidecar code (direct, then group→short). */
+  groupToShortCode: Record<string, string | null>
+}
+
+/**
+ * Replace each member's monthly band / trace with the precomputed CalSim monthly
+ * sidecar where available. Acts only on the monthly views; members without a
+ * monthly block keep their synthetic numbers. Mirrors `applyFileSeries`'s scenario
+ * resolution so the two file paths cover the same scenarios.
+ */
+export function applyFileMonthly(
+  members: ChartMember[],
+  ctx: FileMonthlyContext,
+): ChartMember[] {
+  const monthlyView = ctx.view === "monthly" || ctx.view === "series"
+  if (!monthlyView) return members
+  return members.map((m) => {
+    const code = ctx.sidecars[m.scenarioId]
+      ? m.scenarioId
+      : (ctx.groupToShortCode[m.scenarioId] ?? "")
+    const sidecar = code ? ctx.sidecars[code] : undefined
+    const trace = sidecar?.monthly?.[ctx.variableId]?.[m.locationId]
+    if (!trace || trace.length === 0) return m
+    if (ctx.view === "series") {
+      return { ...m, monthlySeries: trace, source: "file" }
+    }
+    return { ...m, monthlyBands: monthlyBandsFromTrace(trace), source: "file" }
   })
 }
 

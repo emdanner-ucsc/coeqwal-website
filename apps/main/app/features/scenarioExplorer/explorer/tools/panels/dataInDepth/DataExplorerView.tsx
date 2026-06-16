@@ -11,9 +11,10 @@
  * Data layering (decision #2): numbers default to the deterministic synthetic
  * engine, with real CalSim data layered over it where available via the seam in
  * `data/inDepthDataSource.ts` — precomputed CSV sidecars (file) back the annual
- * series views (so the exceedance curve and box go real), and the live API backs
- * the storage box. Monthly views are synthetic for now (the sidecar carries
- * annual series only). Each chart states its source.
+ * series views (so the exceedance curve and box go real) and, for the flow
+ * variables (NDO, river flows), the monthly pattern + time-series views from the
+ * sidecar's raw monthly trace; the live API backs the storage box. Variables or
+ * scenarios without coverage fall back to synthetic. Each chart states its source.
  */
 
 import React from "react"
@@ -53,6 +54,7 @@ import {
 } from "./synthetic/inDepthSyntheticAdapter"
 import {
   applyFileSeries,
+  applyFileMonthly,
   applyLiveStorage,
   hasFileMember,
   hasLiveMember,
@@ -166,7 +168,14 @@ export default function DataExplorerView({
     groupToShortCode: groupToResolved,
     capForLocation: (locId) => findLocation(group, locId)?.cap,
   })
-  const members = applyLiveStorage(fileMembers, {
+  // Monthly views read the raw monthly trace from the same sidecars (ndo, riv_flow).
+  const monthlyMembers = applyFileMonthly(fileMembers, {
+    variableId: selectedVariableId,
+    view,
+    sidecars,
+    groupToShortCode: groupToResolved,
+  })
+  const members = applyLiveStorage(monthlyMembers, {
     variableId: selectedVariableId,
     view,
     compareBy,
@@ -414,12 +423,12 @@ export default function DataExplorerView({
           ) : view === "monthly" ? (
             <>
               <MonthlyBandChart members={members} unit={unit} />
-              <ChartSourceNote fileActive={false} />
+              <ChartSourceNote fileActive={fileActive} />
             </>
           ) : (
             <>
               <MonthlySeriesChart members={members} unit={unit} />
-              <ChartSourceNote fileActive={false} />
+              <ChartSourceNote fileActive={fileActive} />
             </>
           )}
         </Box>
