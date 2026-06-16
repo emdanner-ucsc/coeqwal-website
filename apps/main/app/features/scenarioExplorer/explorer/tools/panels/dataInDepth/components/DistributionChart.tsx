@@ -16,6 +16,7 @@
 import React, { useMemo, useRef, useState } from "react"
 import { scaleLinear, ticks, useResizeObserver } from "@repo/viz"
 import type { ChartMember } from "../synthetic/inDepthSyntheticAdapter"
+import ChartLegend, { legendHeight } from "./ChartLegend"
 
 export interface DistributionChartProps {
   members: ChartMember[]
@@ -71,8 +72,17 @@ const DistributionChart: React.FC<DistributionChartProps> = React.memo(
 
     const innerLeft = MARGIN.left
     const innerRight = width - MARGIN.right
-    const innerTop = MARGIN.top
-    const innerBottom = height - MARGIN.bottom
+    // Reserve a top strip for the legend (drawn in-SVG so it travels with the
+    // exported figure). The plot keeps its full height; the legend adds to it.
+    const legendItems = useMemo(
+      () =>
+        members.map((m) => ({ key: m.key, label: m.label, color: m.color })),
+      [members],
+    )
+    const legendH = legendHeight(legendItems, innerRight - innerLeft)
+    const svgHeight = height + legendH
+    const innerTop = MARGIN.top + legendH
+    const innerBottom = svgHeight - MARGIN.bottom
 
     // Sorted-descending series per member (memoized).
     const sorted = useMemo(
@@ -148,7 +158,14 @@ const DistributionChart: React.FC<DistributionChartProps> = React.memo(
 
     return (
       <div ref={containerRef} style={{ width: "100%" }}>
-        <svg width={width} height={height} style={{ display: "block" }}>
+        <svg width={width} height={svgHeight} style={{ display: "block" }}>
+          {/* legend (in-SVG so it is included in SVG export) */}
+          <ChartLegend
+            items={legendItems}
+            x={innerLeft}
+            y={MARGIN.top}
+            width={innerRight - innerLeft}
+          />
           {/* y grid + labels */}
           {yTicks.map((t) => (
             <g key={`y${t}`}>
@@ -248,7 +265,7 @@ const DistributionChart: React.FC<DistributionChartProps> = React.memo(
           {/* x-axis caption */}
           <text
             x={(innerLeft + innerRight) / 2}
-            y={height - 6}
+            y={svgHeight - 6}
             textAnchor="middle"
             fontSize={11}
             fill={TEXT}

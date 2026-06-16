@@ -13,6 +13,7 @@ import React, { useMemo, useRef } from "react"
 import { scaleLinear, ticks, useResizeObserver } from "@repo/viz"
 import type { ChartMember } from "../data/inDepthDataSource"
 import { AXIS, fmt, GRID, TEXT } from "./chartFormat"
+import ChartLegend, { legendHeight } from "./ChartLegend"
 
 export interface MonthlySeriesChartProps {
   members: ChartMember[]
@@ -34,8 +35,15 @@ const MonthlySeriesChart: React.FC<MonthlySeriesChartProps> = React.memo(
 
     const innerLeft = MARGIN.left
     const innerRight = width - MARGIN.right
-    const innerTop = MARGIN.top
-    const innerBottom = height - MARGIN.bottom
+    // Reserve a top strip for the legend (in-SVG so it travels with the export).
+    const legendItems = useMemo(
+      () => traces.map((m) => ({ key: m.key, label: m.label, color: m.color })),
+      [traces],
+    )
+    const legendH = legendHeight(legendItems, innerRight - innerLeft)
+    const svgHeight = height + legendH
+    const innerTop = MARGIN.top + legendH
+    const innerBottom = svgHeight - MARGIN.bottom
 
     const nPoints = traces[0]?.monthlySeries?.length ?? 0
     const nYears = Math.max(1, Math.round(nPoints / MONTHS_PER_YEAR))
@@ -98,7 +106,14 @@ const MonthlySeriesChart: React.FC<MonthlySeriesChartProps> = React.memo(
 
     return (
       <div ref={containerRef} style={{ width: "100%" }}>
-        <svg width={width} height={height} style={{ display: "block" }}>
+        <svg width={width} height={svgHeight} style={{ display: "block" }}>
+          {/* legend (in-SVG so it is included in SVG export) */}
+          <ChartLegend
+            items={legendItems}
+            x={innerLeft}
+            y={MARGIN.top}
+            width={innerRight - innerLeft}
+          />
           {yTicks.map((t) => (
             <g key={`y${t}`}>
               <line
@@ -158,7 +173,7 @@ const MonthlySeriesChart: React.FC<MonthlySeriesChartProps> = React.memo(
           ))}
           <text
             x={(innerLeft + innerRight) / 2}
-            y={height - 6}
+            y={svgHeight - 6}
             textAnchor="middle"
             fontSize={11}
             fill={TEXT}
