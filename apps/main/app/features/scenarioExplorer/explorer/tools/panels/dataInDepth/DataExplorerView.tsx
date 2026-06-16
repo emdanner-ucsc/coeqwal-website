@@ -24,6 +24,7 @@ import {
   useTheme,
   Button,
   Chip,
+  IconButton,
   Stack,
   Divider,
   ToggleButton,
@@ -33,6 +34,7 @@ import {
   MenuItem,
   type SelectChangeEvent,
 } from "@repo/ui/mui"
+import { ScenarioBadge } from "@repo/ui"
 import { useWorkspaceSlice, useDataInDepthSlice } from "../../../store"
 import { PRIMARY_SCENARIO_BASELINE_ID } from "../../../../utils/scenarioIdSort"
 import {
@@ -103,7 +105,8 @@ export default function DataExplorerView({
   // Real scenario list (names + themes); the picker no longer uses the synthetic
   // fixtures. Ids are sibling-group ids — the same space as the workspace
   // selection the local set is seeded from.
-  const { siblingGroups, getDisplayName } = useScenarioList()
+  const { siblingGroups, getDisplayName, getThemeForScenario } =
+    useScenarioList()
   const scenarioName = (id: string) => getDisplayName(id) || id
 
   // Decision #1 (hybrid): seed the local set from the global selection once on
@@ -351,6 +354,7 @@ export default function DataExplorerView({
           group={group}
           availableToAdd={availableToAdd}
           scenarioName={scenarioName}
+          scenarioTheme={getThemeForScenario}
           onAddScenario={addSelectedScenario}
           onRemoveScenario={removeSelectedScenario}
           onToggleClimate={toggleClimate}
@@ -496,6 +500,7 @@ interface MemberControlsProps {
   group: keyof typeof LOCGROUPS
   availableToAdd: { id: string; name: string }[]
   scenarioName: (id: string) => string
+  scenarioTheme: (id: string) => string
   onAddScenario: (id: string) => void
   onRemoveScenario: (id: string) => void
   onToggleClimate: (id: string) => void
@@ -510,6 +515,7 @@ function MemberControls({
   group,
   availableToAdd,
   scenarioName,
+  scenarioTheme,
   onAddScenario,
   onRemoveScenario,
   onToggleClimate,
@@ -519,18 +525,69 @@ function MemberControls({
 
   if (compareBy === "scen") {
     return (
-      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ flexWrap: "wrap", rowGap: 1, alignItems: "center" }}
+      >
         {selectedScenarioIds.map((id) => {
           const isReference = id === PRIMARY_SCENARIO_BASELINE_ID
+          // Colour the badge by the scenario's water theme, matching the
+          // sidebar accordion headers / theme subheaders elsewhere on the site.
+          const wt =
+            theme.palette.waterThemes[
+              scenarioTheme(id) as keyof typeof theme.palette.waterThemes
+            ] ?? theme.palette.waterThemes.unthemed
           return (
-            <Chip
+            <Box
               key={id}
-              size="small"
-              label={scenarioName(id) + (isReference ? " · reference" : "")}
-              onDelete={isReference ? undefined : () => onRemoveScenario(id)}
-              variant={isReference ? "filled" : "outlined"}
-              sx={isReference ? { fontWeight: 600 } : undefined}
-            />
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 0.5,
+                border: theme.border.light,
+                borderRadius: "4px",
+                pl: 0.5,
+                pr: isReference ? 0.75 : 0.25,
+                py: 0.25,
+                backgroundColor: theme.palette.background.paper,
+              }}
+            >
+              <ScenarioBadge
+                label={scenarioName(id)}
+                backgroundColor={wt.background}
+                color={wt.text}
+              />
+              {isReference ? (
+                <Typography
+                  component="span"
+                  variant="caption"
+                  sx={{
+                    color: theme.palette.text.secondary,
+                    fontStyle: "italic",
+                  }}
+                >
+                  reference
+                </Typography>
+              ) : (
+                <IconButton
+                  size="small"
+                  aria-label={`Remove ${scenarioName(id)}`}
+                  onClick={() => onRemoveScenario(id)}
+                  sx={{
+                    p: 0,
+                    width: 16,
+                    height: 16,
+                    fontSize: 15,
+                    lineHeight: 1,
+                    color: theme.palette.text.secondary,
+                    "&:hover": { color: theme.palette.text.primary },
+                  }}
+                >
+                  ×
+                </IconButton>
+              )}
+            </Box>
           )
         })}
         {selectedScenarioIds.length < 5 && availableToAdd.length > 0 && (
