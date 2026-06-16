@@ -69,6 +69,10 @@ import DistributionChart from "./components/DistributionChart"
 import UnitsBarChart from "./components/UnitsBarChart"
 import MonthlyBandChart from "./components/MonthlyBandChart"
 import MonthlySeriesChart from "./components/MonthlySeriesChart"
+import {
+  downloadMembersCsv,
+  downloadChartSvg,
+} from "./utils/inDepthChartExport"
 
 interface DataExplorerViewProps {
   onNavigateToExplorer?: () => void
@@ -192,6 +196,40 @@ export default function DataExplorerView({
   const boxIsLive =
     distKind === "box" && isDistribution && hasLiveMember(members)
   const innerBandLabel = members[0]?.box.innerLabel ?? "25th–75th"
+
+  // Export (build-order step 5): CSV of the plotted members + SVG of the chart.
+  // `chartRef` wraps the chart area so the SVG capture targets the right SVG(s).
+  const chartRef = React.useRef<HTMLDivElement | null>(null)
+  const compareByLabel =
+    compareBy === "scen"
+      ? "Scenarios"
+      : compareBy === "clim"
+        ? "Climate futures"
+        : "Locations"
+  // CV is drawn in %, every other view in the variable's own unit.
+  const exportUnit = view === "cv" ? "%" : unit
+
+  const handleCsvDownload = () => {
+    downloadMembersCsv({
+      variableName: variable.name,
+      variableId: selectedVariableId,
+      view,
+      viewLabel: VIEW_META[view].label,
+      distKind: isDistribution ? distKind : undefined,
+      compareByLabel,
+      unit: exportUnit,
+      members,
+    })
+  }
+
+  const handleSvgDownload = () => {
+    if (!chartRef.current) return
+    downloadChartSvg(chartRef.current, {
+      variableId: selectedVariableId,
+      view,
+      distKind: isDistribution ? distKind : undefined,
+    })
+  }
 
   const availableToAdd = siblingGroups
     .filter((s) => !selectedScenarioIds.includes(s.scenarioId))
@@ -382,66 +420,92 @@ export default function DataExplorerView({
                   : "location"}{" "}
               to draw the chart.
             </Typography>
-          ) : isDistribution ? (
-            <>
-              <DistributionChart
-                members={members}
-                mode={distKind}
-                unit={unit}
-              />
-              <Typography
-                variant="caption"
-                sx={{
-                  display: "block",
-                  mt: 0.5,
-                  color: theme.palette.text.secondary,
-                }}
-              >
-                {distKind === "box"
-                  ? `Box spans the ${innerBandLabel} percentiles; whiskers reach the 10th–90th. `
-                  : "Each curve is one member's full annual distribution. "}
-                {fileActive
-                  ? "Real CalSim 3 data (precomputed from raw output)."
-                  : boxIsLive
-                    ? "Live CalSim 3 storage statistics."
-                    : "Synthetic stand-in data."}
-              </Typography>
-            </>
-          ) : view === "cv" ? (
-            <>
-              <UnitsBarChart
-                bars={members.map((m) => ({
-                  key: m.key,
-                  label: m.label,
-                  color: m.color,
-                  value: m.cv * 100,
-                }))}
-                unit="%"
-              />
-              <ChartSourceNote fileActive={fileActive} />
-            </>
-          ) : view === "value" ? (
-            <>
-              <UnitsBarChart
-                bars={members.map((m) => ({
-                  key: m.key,
-                  label: m.label,
-                  color: m.color,
-                  value: m.summaryValue,
-                }))}
-                unit={variable.unit}
-              />
-              <ChartSourceNote fileActive={fileActive} />
-            </>
-          ) : view === "monthly" ? (
-            <>
-              <MonthlyBandChart members={members} unit={unit} />
-              <ChartSourceNote fileActive={fileActive} />
-            </>
           ) : (
             <>
-              <MonthlySeriesChart members={members} unit={unit} />
-              <ChartSourceNote fileActive={fileActive} />
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ mb: 1, justifyContent: "flex-end" }}
+              >
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleCsvDownload}
+                >
+                  Download data (CSV)
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleSvgDownload}
+                >
+                  Download chart (SVG)
+                </Button>
+              </Stack>
+              <Box ref={chartRef}>
+                {isDistribution ? (
+                  <>
+                    <DistributionChart
+                      members={members}
+                      mode={distKind}
+                      unit={unit}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: "block",
+                        mt: 0.5,
+                        color: theme.palette.text.secondary,
+                      }}
+                    >
+                      {distKind === "box"
+                        ? `Box spans the ${innerBandLabel} percentiles; whiskers reach the 10th–90th. `
+                        : "Each curve is one member's full annual distribution. "}
+                      {fileActive
+                        ? "Real CalSim 3 data (precomputed from raw output)."
+                        : boxIsLive
+                          ? "Live CalSim 3 storage statistics."
+                          : "Synthetic stand-in data."}
+                    </Typography>
+                  </>
+                ) : view === "cv" ? (
+                  <>
+                    <UnitsBarChart
+                      bars={members.map((m) => ({
+                        key: m.key,
+                        label: m.label,
+                        color: m.color,
+                        value: m.cv * 100,
+                      }))}
+                      unit="%"
+                    />
+                    <ChartSourceNote fileActive={fileActive} />
+                  </>
+                ) : view === "value" ? (
+                  <>
+                    <UnitsBarChart
+                      bars={members.map((m) => ({
+                        key: m.key,
+                        label: m.label,
+                        color: m.color,
+                        value: m.summaryValue,
+                      }))}
+                      unit={variable.unit}
+                    />
+                    <ChartSourceNote fileActive={fileActive} />
+                  </>
+                ) : view === "monthly" ? (
+                  <>
+                    <MonthlyBandChart members={members} unit={unit} />
+                    <ChartSourceNote fileActive={fileActive} />
+                  </>
+                ) : (
+                  <>
+                    <MonthlySeriesChart members={members} unit={unit} />
+                    <ChartSourceNote fileActive={fileActive} />
+                  </>
+                )}
+              </Box>
             </>
           )}
         </Box>
