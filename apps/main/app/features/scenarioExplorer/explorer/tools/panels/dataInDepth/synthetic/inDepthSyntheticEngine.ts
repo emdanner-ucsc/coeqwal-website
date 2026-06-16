@@ -68,6 +68,22 @@ export const CLIMATES: SyntheticClimate[] = [
   },
 ]
 
+/**
+ * Bridge from the site's real hydroclimate values (the shared "View by climate"
+ * chooser, keyed in content/scenarios.ts) to this synthetic engine's climate
+ * ids. Mapping confirmed with Eric 2026-06-16: EC-Earth3-Veg = Moderate,
+ * CC50 = Moderate-high, CC95 = High, TaiESM1 = Extreme. Lets the tool take its
+ * single active climate from the top-bar chooser (like the other tabs) while the
+ * synthetic stand-in keeps working off these ids.
+ */
+export const HYDROCLIMATE_TO_SYNTHETIC_CLIMATE: Record<string, string> = {
+  historical: "hist",
+  ecearth: "mod",
+  cc50: "modhigh",
+  cc95: "high",
+  taiesm1: "extreme",
+}
+
 export interface SyntheticTheme {
   id: string
   name: string
