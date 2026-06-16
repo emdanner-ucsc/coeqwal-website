@@ -720,3 +720,91 @@ export function shapeFor(variableId: InDepthVariableId): number[] {
     kind.shape ?? (VARDEF[variableId].kindId === "storage" ? "storage" : null)
   return SHAPES[name ?? "flow"]
 }
+
+// ----------------------------------------------------------------------------
+// Monthly views (SYNTHETIC) — ported from the prototype
+// ----------------------------------------------------------------------------
+
+export interface MonthlyBand {
+  p10: number
+  p50: number
+  p90: number
+}
+
+/** 12 water-year months (Oct→Sep): median + p10/p90 band across all years. */
+export function monthlyBands(
+  variableId: InDepthVariableId,
+  scenarioId: string,
+  climateId: string,
+  locationId: string,
+): MonthlyBand[] {
+  const shape = shapeFor(variableId)
+  const ann = annualSeries(variableId, scenarioId, climateId, locationId)
+  const r = rng(
+    hash("mon|" + [variableId, scenarioId, climateId, locationId].join("|")),
+  )
+  const bands: MonthlyBand[] = []
+  for (let mth = 0; mth < 12; mth++) {
+    const vals: number[] = []
+    for (let y = 0; y < NYEARS; y++) {
+      const base = (ann[y] ?? 0) * (shape[mth] ?? 0)
+      vals.push(Math.max(0, base * Math.exp(0.1 * gauss(r))))
+    }
+    vals.sort((a, b) => a - b)
+    bands.push({
+      p10: quantile(vals, 0.1),
+      p50: quantile(vals, 0.5),
+      p90: quantile(vals, 0.9),
+    })
+  }
+  return bands
+}
+
+/** Continuous monthly trace over the whole simulation (NYEARS×12, water-year order). */
+export function monthlySeries(
+  variableId: InDepthVariableId,
+  scenarioId: string,
+  climateId: string,
+  locationId: string,
+): number[] {
+  const kind = KINDS[VARDEF[variableId].kindId]
+  const shape = shapeFor(variableId)
+  const ann = annualSeries(variableId, scenarioId, climateId, locationId)
+  const r = rng(
+    hash("mser|" + [variableId, scenarioId, climateId, locationId].join("|")),
+  )
+  const out: number[] = []
+  for (let y = 0; y < NYEARS; y++) {
+    for (let mth = 0; mth < 12; mth++) {
+      let v = (ann[y] ?? 0) * (shape[mth] ?? 0) * Math.exp(0.1 * gauss(r))
+      if (kind.clamp) v = Math.min(kind.clamp[1], Math.max(kind.clamp[0], v))
+      else v = Math.max(0, v)
+      out.push(v)
+    }
+  }
+  return out
+}
+
+/** Single summary value for the "value" view (gw_trend and ag_rev are special). */
+export function summaryValue(
+  variableId: InDepthVariableId,
+  scenarioId: string,
+  climateId: string,
+  locationId: string,
+): number {
+  const vd = VARDEF[variableId]
+  if (variableId === "gw_trend") {
+    const scen = findScenario(scenarioId)
+    const clim = findClimate(climateId)
+    const loc = findLocation(vd.locationGroupId, locationId)
+    if (!scen || !clim || !loc) return NaN
+    const base = loc.region === "SOD" ? -1.6 : -0.45
+    const e = (scen.eff.gwTrend ?? 0) * regionWeight(scen, loc)
+    const r = rng(
+      hash("tr|" + [variableId, scenarioId, climateId, locationId].join("|")),
+    )
+    return base * (1 - e) - 0.55 * clim.stress + 0.08 * gauss(r)
+  }
+  const s = stats(annualSeries(variableId, scenarioId, climateId, locationId))
+  return variableId === "ag_rev" ? s.mean : s.p50
+}

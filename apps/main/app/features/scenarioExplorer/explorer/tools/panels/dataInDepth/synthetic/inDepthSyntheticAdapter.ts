@@ -23,7 +23,10 @@ import {
   findScenario,
   LOCGROUPS,
   MEMBER_PALETTE,
+  monthlyBands,
+  monthlySeries,
   stats,
+  summaryValue,
 } from "./inDepthSyntheticEngine"
 import { syntheticBox, type ChartMember } from "../data/inDepthDataSource"
 
@@ -104,6 +107,7 @@ export function buildMembers(args: BuildMembersArgs): ChartMember[] {
       const cap = findLocation(group, spec.locationId)?.cap ?? 0
       series = cap > 0 ? series.map((v) => (v / cap) * 100) : series
     }
+    const st = stats(series)
     return {
       key: `${spec.scenarioId}|${spec.climateId}|${spec.locationId}`,
       label: spec.label,
@@ -112,7 +116,33 @@ export function buildMembers(args: BuildMembersArgs): ChartMember[] {
       climateId: spec.climateId,
       locationId: spec.locationId,
       series,
-      box: syntheticBox(stats(series)),
+      box: syntheticBox(st),
+      cv: st.cv,
+      summaryValue: summaryValue(
+        args.variableId,
+        spec.scenarioId,
+        spec.climateId,
+        spec.locationId,
+      ),
+      // Heavier monthly reductions only for the view that needs them.
+      monthlyBands:
+        args.view === "monthly"
+          ? monthlyBands(
+              args.variableId,
+              spec.scenarioId,
+              spec.climateId,
+              spec.locationId,
+            )
+          : undefined,
+      monthlySeries:
+        args.view === "series"
+          ? monthlySeries(
+              args.variableId,
+              spec.scenarioId,
+              spec.climateId,
+              spec.locationId,
+            )
+          : undefined,
       source: "synthetic",
     }
   })

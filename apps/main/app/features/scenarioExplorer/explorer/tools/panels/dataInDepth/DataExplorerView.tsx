@@ -3,17 +3,17 @@
 /**
  * DataExplorerView — In-Depth Outcomes explorer (Option A port).
  *
- * First rendering cut: left-rail variable picker, compare-by + view controls,
- * member chips, and the signature exceedance / box distribution chart, driven
- * by the data-in-depth store slice and the SYNTHETIC adapter.
+ * Left-rail variable picker, compare-by + view controls, member chips, and all
+ * six chart views: annual distribution (exceedance / box), % of capacity,
+ * monthly pattern (small-multiple bands), monthly time series, year-to-year
+ * variability (CV bar) and summary value (units bar).
  *
- * Mostly SYNTHETIC (decision #2): numbers come from the deterministic synthetic
- * engine, EXCEPT the reservoir-storage box plot in scenario-compare, which is
- * drawn from real CalSim 3 batch statistics where available (the seam in
- * `data/inDepthDataSource.ts`). The exceedance curve is always synthetic (the
- * API has no raw annual series). Views other than the annual distribution
- * (monthly / time-series / variability / summary) are still being ported and
- * show a placeholder for now.
+ * Data layering (decision #2): numbers default to the deterministic synthetic
+ * engine, with real CalSim data layered over it where available via the seam in
+ * `data/inDepthDataSource.ts` — precomputed CSV sidecars (file) back the annual
+ * series views (so the exceedance curve and box go real), and the live API backs
+ * the storage box. Monthly views are synthetic for now (the sidecar carries
+ * annual series only). Each chart states its source.
  */
 
 import React from "react"
@@ -63,6 +63,9 @@ import { useResolvedSelectedScenarios } from "./hooks/useResolvedSelectedScenari
 import { useCalsimSidecars } from "./hooks/useCalsimSidecars"
 import { useBatchStatistics } from "@repo/data/coeqwal/hooks"
 import DistributionChart from "./components/DistributionChart"
+import UnitsBarChart from "./components/UnitsBarChart"
+import MonthlyBandChart from "./components/MonthlyBandChart"
+import MonthlySeriesChart from "./components/MonthlySeriesChart"
 
 interface DataExplorerViewProps {
   onNavigateToExplorer?: () => void
@@ -340,61 +343,77 @@ export default function DataExplorerView({
 
         {/* Chart */}
         <Box sx={{ mt: 2 }}>
-          {isDistribution ? (
-            members.length > 0 ? (
-              <>
-                <DistributionChart
-                  members={members}
-                  mode={distKind}
-                  unit={unit}
-                />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: "block",
-                    mt: 0.5,
-                    color: theme.palette.text.secondary,
-                  }}
-                >
-                  {distKind === "box"
-                    ? `Box spans the ${innerBandLabel} percentiles; whiskers reach the 10th–90th. `
-                    : "Each curve is one member's full annual distribution. "}
-                  {fileActive
-                    ? "Real CalSim 3 data (precomputed from raw output)."
-                    : boxIsLive
-                      ? "Live CalSim 3 storage statistics."
-                      : "Synthetic stand-in data."}
-                </Typography>
-              </>
-            ) : (
+          {members.length === 0 ? (
+            <Typography variant="body2" sx={{ color: theme.palette.grey[600] }}>
+              Select at least one{" "}
+              {compareBy === "scen"
+                ? "scenario"
+                : compareBy === "clim"
+                  ? "climate"
+                  : "location"}{" "}
+              to draw the chart.
+            </Typography>
+          ) : isDistribution ? (
+            <>
+              <DistributionChart
+                members={members}
+                mode={distKind}
+                unit={unit}
+              />
               <Typography
-                variant="body2"
-                sx={{ color: theme.palette.grey[600] }}
+                variant="caption"
+                sx={{
+                  display: "block",
+                  mt: 0.5,
+                  color: theme.palette.text.secondary,
+                }}
               >
-                Select at least one{" "}
-                {compareBy === "scen"
-                  ? "scenario"
-                  : compareBy === "clim"
-                    ? "climate"
-                    : "location"}{" "}
-                to draw the chart.
+                {distKind === "box"
+                  ? `Box spans the ${innerBandLabel} percentiles; whiskers reach the 10th–90th. `
+                  : "Each curve is one member's full annual distribution. "}
+                {fileActive
+                  ? "Real CalSim 3 data (precomputed from raw output)."
+                  : boxIsLive
+                    ? "Live CalSim 3 storage statistics."
+                    : "Synthetic stand-in data."}
               </Typography>
-            )
+            </>
+          ) : view === "cv" ? (
+            <>
+              <UnitsBarChart
+                bars={members.map((m) => ({
+                  key: m.key,
+                  label: m.label,
+                  color: m.color,
+                  value: m.cv * 100,
+                }))}
+                unit="%"
+              />
+              <ChartSourceNote fileActive={fileActive} />
+            </>
+          ) : view === "value" ? (
+            <>
+              <UnitsBarChart
+                bars={members.map((m) => ({
+                  key: m.key,
+                  label: m.label,
+                  color: m.color,
+                  value: m.summaryValue,
+                }))}
+                unit={variable.unit}
+              />
+              <ChartSourceNote fileActive={fileActive} />
+            </>
+          ) : view === "monthly" ? (
+            <>
+              <MonthlyBandChart members={members} unit={unit} />
+              <ChartSourceNote fileActive={false} />
+            </>
           ) : (
-            <Box
-              sx={{
-                p: 4,
-                border: theme.border.light,
-                borderRadius: 1,
-                color: theme.palette.grey[600],
-              }}
-            >
-              <Typography variant="body2">
-                The “{VIEW_META[view].label}” view is still being ported. The
-                annual distribution (exceedance and box plot) is the first live
-                view — switch “View” back to it to see the chart.
-              </Typography>
-            </Box>
+            <>
+              <MonthlySeriesChart members={members} unit={unit} />
+              <ChartSourceNote fileActive={false} />
+            </>
           )}
         </Box>
 
@@ -411,6 +430,20 @@ export default function DataExplorerView({
         )}
       </Box>
     </Box>
+  )
+}
+
+function ChartSourceNote({ fileActive }: { fileActive: boolean }) {
+  const theme = useTheme()
+  return (
+    <Typography
+      variant="caption"
+      sx={{ display: "block", mt: 0.5, color: theme.palette.text.secondary }}
+    >
+      {fileActive
+        ? "Real CalSim 3 data (precomputed from raw output)."
+        : "Synthetic stand-in data."}
+    </Typography>
   )
 }
 

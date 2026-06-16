@@ -35,7 +35,10 @@ import type {
   InDepthVariableId,
   InDepthViewId,
 } from "../config/inDepthVariables"
-import type { SeriesStats } from "../synthetic/inDepthSyntheticEngine"
+import type {
+  MonthlyBand,
+  SeriesStats,
+} from "../synthetic/inDepthSyntheticEngine"
 import type { CompareBy } from "../../../../store"
 
 /** Where a member's numbers came from. "file" = precomputed CalSim sidecar. */
@@ -63,11 +66,19 @@ export interface ChartMember {
   scenarioId: string
   climateId: string
   locationId: string
-  /** Annual series — SYNTHETIC only; drives the exceedance curve. */
+  /** Annual series; drives the exceedance curve (real when file-backed). */
   series: number[]
-  /** Five-number summary for the box plot (synthetic or live). */
+  /** Five-number summary for the box plot. */
   box: BoxStats
-  /** Where `box` came from. The exceedance view is always synthetic. */
+  /** Coefficient of variation of the annual series (year-to-year variability view). */
+  cv: number
+  /** Single summary value (e.g. gw_trend ft/yr, ag_rev $B) for the value view. */
+  summaryValue: number
+  /** Monthly p10/p50/p90 band (12 months) — populated for the monthly view only. */
+  monthlyBands?: MonthlyBand[]
+  /** Raw NYEARS×12 monthly trace — populated for the time-series view only. */
+  monthlySeries?: number[]
+  /** Where the numbers came from. Monthly views are always synthetic for now. */
   source: DataSource
 }
 
@@ -214,6 +225,30 @@ export function boxFromSeries(series: number[]): BoxStats {
   }
 }
 
+/** Coefficient of variation (sd / mean) of a series. */
+export function cvOf(series: number[]): number {
+  if (series.length === 0) return 0
+  const mean = series.reduce((a, b) => a + b, 0) / series.length
+  if (!mean) return 0
+  const sd = Math.sqrt(
+    series.reduce((a, b) => a + (b - mean) * (b - mean), 0) / series.length,
+  )
+  return sd / mean
+}
+
+/** Summary value from a real series: mean for ag_rev, median otherwise. */
+export function summaryOf(
+  variableId: InDepthVariableId,
+  series: number[],
+): number {
+  if (series.length === 0) return NaN
+  const s = [...series].sort((a, b) => a - b)
+  if (variableId === "ag_rev") {
+    return series.reduce((a, b) => a + b, 0) / series.length
+  }
+  return quantileSorted(s, 0.5)
+}
+
 export interface FileSeriesContext {
   variableId: InDepthVariableId
   view: InDepthViewId
@@ -234,6 +269,13 @@ export function applyFileSeries(
   members: ChartMember[],
   ctx: FileSeriesContext,
 ): ChartMember[] {
+  // Sidecars carry annual series only; monthly views stay synthetic for now.
+  const annualView =
+    ctx.view === "dist" ||
+    ctx.view === "pct" ||
+    ctx.view === "cv" ||
+    ctx.view === "value"
+  if (!annualView) return members
   const pct = ctx.view === "pct"
   return members.map((m) => {
     const code = ctx.sidecars[m.scenarioId]
@@ -247,7 +289,14 @@ export function applyFileSeries(
       const cap = ctx.capForLocation?.(m.locationId)
       if (cap && cap > 0) series = raw.map((v) => (v / cap) * 100)
     }
-    return { ...m, series, box: boxFromSeries(series), source: "file" }
+    return {
+      ...m,
+      series,
+      box: boxFromSeries(series),
+      cv: cvOf(series),
+      summaryValue: summaryOf(ctx.variableId, series),
+      source: "file",
+    }
   })
 }
 
