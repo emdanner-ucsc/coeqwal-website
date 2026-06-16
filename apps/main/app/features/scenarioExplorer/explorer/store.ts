@@ -12,6 +12,8 @@ export {
   useRadarSlice,
   useEquitySlice,
   useResilienceSlice,
+  useDataInDepthSlice,
+  MAX_IN_DEPTH_SCENARIOS,
 } from "./store/index"
 
 export type {
@@ -28,4 +30,10 @@ export type {
   DeltaMode,
   AggregateScope,
   ResilienceControlFields,
+  DataInDepthSlice,
+  DataInDepthState,
+  DataInDepthActions,
+  DistKind,
+  CompareBy,
+  ScenarioMenuGrouping,
 } from "./store/index"
