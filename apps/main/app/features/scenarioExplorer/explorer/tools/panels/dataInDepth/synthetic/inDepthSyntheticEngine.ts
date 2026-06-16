@@ -502,6 +502,16 @@ export const MEMBER_PALETTE = [
 
 export const findScenario = (id: string): SyntheticScenario | undefined =>
   SCENARIOS.find((s) => s.id === id)
+
+/**
+ * Resolve a scenario for the synthetic engine. Real scenarios that aren't in the
+ * synthetic effect tables (the picker now lists the real set) fall back to a
+ * no-effect baseline — so non-sidecar variables render as a baseline synthetic
+ * distribution (distinct per scenario via the noise seed) rather than breaking.
+ */
+function resolveScenario(id: string): SyntheticScenario {
+  return findScenario(id) ?? { id, theme: "", name: id, eff: {}, desc: "" }
+}
 export const findClimate = (id: string): SyntheticClimate | undefined =>
   CLIMATES.find((c) => c.id === id)
 export const findLocation = (
@@ -647,10 +657,10 @@ export function annualSeries(
   if (cached) return cached
 
   const vd = VARDEF[variableId]
-  const scen = findScenario(scenarioId)
+  const scen = resolveScenario(scenarioId)
   const clim = findClimate(climateId)
   const loc = findLocation(vd.locationGroupId, locationId)
-  if (!scen || !clim || !loc) {
+  if (!clim || !loc) {
     seriesCache[key] = []
     return []
   }
@@ -794,10 +804,10 @@ export function summaryValue(
 ): number {
   const vd = VARDEF[variableId]
   if (variableId === "gw_trend") {
-    const scen = findScenario(scenarioId)
+    const scen = resolveScenario(scenarioId)
     const clim = findClimate(climateId)
     const loc = findLocation(vd.locationGroupId, locationId)
-    if (!scen || !clim || !loc) return NaN
+    if (!clim || !loc) return NaN
     const base = loc.region === "SOD" ? -1.6 : -0.45
     const e = (scen.eff.gwTrend ?? 0) * regionWeight(scen, loc)
     const r = rng(

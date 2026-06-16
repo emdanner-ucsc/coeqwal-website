@@ -42,6 +42,8 @@ export interface BuildMembersArgs {
   pinnedClimate: string
   selectedLocations: Partial<Record<LocationGroupId, string[]>>
   pinnedLocation: Partial<Record<LocationGroupId, string>>
+  /** Display name for a scenario id (real scenario list); falls back to the id. */
+  scenarioName?: (id: string) => string
 }
 
 /** Default selected locations for a group (first three items). */
@@ -62,11 +64,13 @@ function memberSpecs(args: BuildMembersArgs): MemberSpec[] {
   const refLocation = args.pinnedLocation[group] ?? defaultLocationId(group)
 
   if (args.compareBy === "scen") {
+    const nameOf = (id: string) =>
+      args.scenarioName?.(id) ?? findScenario(id)?.name ?? id
     return args.selectedScenarioIds.map((scenarioId) => ({
       scenarioId,
       climateId: args.pinnedClimate,
       locationId: refLocation,
-      label: findScenario(scenarioId)?.name ?? scenarioId,
+      label: nameOf(scenarioId),
     }))
   }
 

@@ -43,10 +43,9 @@ import {
 import {
   CLIMATES,
   LOCGROUPS,
-  SCENARIOS,
   findLocation,
-  findScenario,
 } from "./synthetic/inDepthSyntheticEngine"
+import { useScenarioList } from "../../../../../scenarios/hooks/useScenarioList"
 import {
   buildMembers,
   defaultSelectedLocations,
@@ -99,6 +98,12 @@ export default function DataExplorerView({
   const variable = VARDEF[selectedVariableId]
   const group = variable.locationGroupId
 
+  // Real scenario list (names + themes); the picker no longer uses the synthetic
+  // fixtures. Ids are sibling-group ids — the same space as the workspace
+  // selection the local set is seeded from.
+  const { siblingGroups, getDisplayName } = useScenarioList()
+  const scenarioName = (id: string) => getDisplayName(id) || id
+
   // Decision #1 (hybrid): seed the local set from the global selection once on
   // open, while the local set is still just the locked reference. Local edits
   // afterwards are preserved and never written back to the global selection.
@@ -132,6 +137,7 @@ export default function DataExplorerView({
     pinnedClimate,
     selectedLocations: { ...slice.selectedLocations, [group]: locationIds },
     pinnedLocation: slice.pinnedLocation,
+    scenarioName,
   })
 
   // Resolve the global selection to scenario short_codes at the map hydroclimate.
@@ -175,9 +181,9 @@ export default function DataExplorerView({
     distKind === "box" && isDistribution && hasLiveMember(members)
   const innerBandLabel = members[0]?.box.innerLabel ?? "25th–75th"
 
-  const availableToAdd = SCENARIOS.filter(
-    (s) => !selectedScenarioIds.includes(s.id),
-  )
+  const availableToAdd = siblingGroups
+    .filter((s) => !selectedScenarioIds.includes(s.scenarioId))
+    .map((s) => ({ id: s.scenarioId, name: s.label }))
 
   return (
     <Box sx={{ display: "flex", height: "100%", minHeight: 0 }}>
@@ -335,6 +341,7 @@ export default function DataExplorerView({
           locationIds={locationIds}
           group={group}
           availableToAdd={availableToAdd}
+          scenarioName={scenarioName}
           onAddScenario={addSelectedScenario}
           onRemoveScenario={removeSelectedScenario}
           onToggleClimate={toggleClimate}
@@ -479,6 +486,7 @@ interface MemberControlsProps {
   locationIds: string[]
   group: keyof typeof LOCGROUPS
   availableToAdd: { id: string; name: string }[]
+  scenarioName: (id: string) => string
   onAddScenario: (id: string) => void
   onRemoveScenario: (id: string) => void
   onToggleClimate: (id: string) => void
@@ -492,6 +500,7 @@ function MemberControls({
   locationIds,
   group,
   availableToAdd,
+  scenarioName,
   onAddScenario,
   onRemoveScenario,
   onToggleClimate,
@@ -508,10 +517,7 @@ function MemberControls({
             <Chip
               key={id}
               size="small"
-              label={
-                (findScenario(id)?.name ?? id) +
-                (isReference ? " · reference" : "")
-              }
+              label={scenarioName(id) + (isReference ? " · reference" : "")}
               onDelete={isReference ? undefined : () => onRemoveScenario(id)}
               variant={isReference ? "filled" : "outlined"}
               sx={isReference ? { fontWeight: 600 } : undefined}
