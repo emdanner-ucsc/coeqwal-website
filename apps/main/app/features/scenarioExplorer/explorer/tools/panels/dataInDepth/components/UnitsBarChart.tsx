@@ -23,13 +23,15 @@ export interface UnitsBar {
 export interface UnitsBarChartProps {
   bars: UnitsBar[]
   unit: string
+  /** Rotated y-axis title (quantity + unit). */
+  yLabel?: string
   height?: number
 }
 
-const MARGIN = { top: 16, right: 20, bottom: 52, left: 64 }
+const MARGIN = { top: 16, right: 20, bottom: 40, left: 72 }
 
 const UnitsBarChart: React.FC<UnitsBarChartProps> = React.memo(
-  ({ bars, unit, height = 360 }) => {
+  ({ bars, unit, yLabel, height = 360 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const dims = useResizeObserver(containerRef as React.RefObject<HTMLElement>)
     const width = dims?.width && dims.width > 0 ? dims.width : 720
@@ -94,6 +96,22 @@ const UnitsBarChart: React.FC<UnitsBarChartProps> = React.memo(
             y2={innerBottom}
             stroke={AXIS}
           />
+
+          {/* y-axis title */}
+          {yLabel && (
+            <text
+              x={16}
+              y={(innerTop + innerBottom) / 2}
+              transform={`rotate(-90 16 ${(innerTop + innerBottom) / 2})`}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={11}
+              fill={TEXT}
+            >
+              {yLabel}
+            </text>
+          )}
+
           {/* zero line (emphasised) */}
           <line
             x1={innerLeft}
@@ -140,16 +158,6 @@ const UnitsBarChart: React.FC<UnitsBarChartProps> = React.memo(
               </g>
             )
           })}
-
-          <text
-            x={(innerLeft + innerRight) / 2}
-            y={height - 6}
-            textAnchor="middle"
-            fontSize={11}
-            fill={TEXT}
-          >
-            {unit ? `Value (${unit})` : "Value"}
-          </text>
         </svg>
       </div>
     )

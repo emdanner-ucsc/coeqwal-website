@@ -22,10 +22,12 @@ export interface DistributionChartProps {
   members: ChartMember[]
   mode: "exceed" | "box"
   unit: string
+  /** Rotated y-axis title (quantity + unit). */
+  yLabel?: string
   height?: number
 }
 
-const MARGIN = { top: 16, right: 20, bottom: 44, left: 60 }
+const MARGIN = { top: 16, right: 20, bottom: 44, left: 72 }
 const AXIS = "#9aa7b2"
 const GRID = "#e6ebef"
 const TEXT = "#41525f"
@@ -64,7 +66,7 @@ function valueAtExceedance(sortedDesc: number[], pPercent: number): number {
 }
 
 const DistributionChart: React.FC<DistributionChartProps> = React.memo(
-  ({ members, mode, unit, height = 420 }) => {
+  ({ members, mode, unit, yLabel, height = 420 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const dims = useResizeObserver(containerRef as React.RefObject<HTMLElement>)
     const width = dims?.width && dims.width > 0 ? dims.width : 760
@@ -205,6 +207,21 @@ const DistributionChart: React.FC<DistributionChartProps> = React.memo(
             y2={innerBottom}
             stroke={AXIS}
           />
+
+          {/* y-axis title */}
+          {yLabel && (
+            <text
+              x={16}
+              y={(innerTop + innerBottom) / 2}
+              transform={`rotate(-90 16 ${(innerTop + innerBottom) / 2})`}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={11}
+              fill={TEXT}
+            >
+              {yLabel}
+            </text>
+          )}
 
           {mode === "exceed" ? (
             <>

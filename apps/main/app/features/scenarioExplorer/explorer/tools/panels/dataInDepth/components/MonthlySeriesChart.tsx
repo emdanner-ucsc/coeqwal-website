@@ -18,15 +18,17 @@ import ChartLegend, { legendHeight } from "./ChartLegend"
 export interface MonthlySeriesChartProps {
   members: ChartMember[]
   unit: string
+  /** Rotated y-axis title (quantity + unit). */
+  yLabel?: string
   /** Years per x-axis label tick. */
   height?: number
 }
 
-const MARGIN = { top: 16, right: 20, bottom: 40, left: 64 }
+const MARGIN = { top: 16, right: 20, bottom: 40, left: 72 }
 const MONTHS_PER_YEAR = 12
 
 const MonthlySeriesChart: React.FC<MonthlySeriesChartProps> = React.memo(
-  ({ members, unit, height = 360 }) => {
+  ({ members, unit, yLabel, height = 360 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const dims = useResizeObserver(containerRef as React.RefObject<HTMLElement>)
     const width = dims?.width && dims.width > 0 ? dims.width : 760
@@ -149,6 +151,20 @@ const MonthlySeriesChart: React.FC<MonthlySeriesChartProps> = React.memo(
             y2={innerBottom}
             stroke={AXIS}
           />
+          {/* y-axis title */}
+          {yLabel && (
+            <text
+              x={16}
+              y={(innerTop + innerBottom) / 2}
+              transform={`rotate(-90 16 ${(innerTop + innerBottom) / 2})`}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={11}
+              fill={TEXT}
+            >
+              {yLabel}
+            </text>
+          )}
           {yearTicks.map((yr) => (
             <text
               key={yr}

@@ -23,7 +23,7 @@ export interface MonthlyBandChartProps {
 
 const PW = 250
 const PH = 168
-const M = { top: 14, right: 12, bottom: 26, left: 48 }
+const M = { top: 14, right: 12, bottom: 26, left: 54 }
 const X_LABEL_MONTHS = [0, 3, 6, 9] // Oct, Jan, Apr, Jul
 
 const MonthlyBandChart: React.FC<MonthlyBandChartProps> = React.memo(
@@ -140,6 +140,20 @@ const MiniBand: React.FC<MiniBandProps> = ({
           </g>
         ))}
         <line x1={left} x2={right} y1={bottom} y2={bottom} stroke={AXIS} />
+        {/* compact y-axis unit (small multiples share one scale) */}
+        {unit && (
+          <text
+            x={12}
+            y={(top + bottom) / 2}
+            transform={`rotate(-90 12 ${(top + bottom) / 2})`}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={10}
+            fill={TEXT}
+          >
+            {unit}
+          </text>
+        )}
         <path
           d={bandPath}
           fill={member.color}

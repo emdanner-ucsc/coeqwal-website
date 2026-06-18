@@ -202,6 +202,14 @@ export default function DataExplorerView({
   })
 
   const unit = memberUnit(selectedVariableId, view)
+  // Y-axis title for the charts (figures are exported as SVG, so they should be
+  // self-describing): quantity + unit, except the derived % / CV views.
+  const yAxisLabel =
+    view === "pct"
+      ? `${variable.name} (% of capacity)`
+      : view === "cv"
+        ? "Year-to-year variability (CV, %)"
+        : `${variable.name} (${unit})`
   const isDistribution = view === "dist" || view === "pct"
   const fileActive = hasFileMember(members)
   const boxIsLive =
@@ -513,6 +521,7 @@ export default function DataExplorerView({
                       members={members}
                       mode={distKind}
                       unit={unit}
+                      yLabel={yAxisLabel}
                     />
                     <Typography
                       variant="caption"
@@ -542,6 +551,7 @@ export default function DataExplorerView({
                         value: m.cv * 100,
                       }))}
                       unit="%"
+                      yLabel={yAxisLabel}
                     />
                     <ChartSourceNote fileActive={fileActive} />
                   </>
@@ -555,6 +565,7 @@ export default function DataExplorerView({
                         value: m.summaryValue,
                       }))}
                       unit={variable.unit}
+                      yLabel={yAxisLabel}
                     />
                     <ChartSourceNote fileActive={fileActive} />
                   </>
@@ -565,7 +576,11 @@ export default function DataExplorerView({
                   </>
                 ) : (
                   <>
-                    <MonthlySeriesChart members={members} unit={unit} />
+                    <MonthlySeriesChart
+                      members={members}
+                      unit={unit}
+                      yLabel={yAxisLabel}
+                    />
                     <ChartSourceNote fileActive={fileActive} />
                   </>
                 )}
