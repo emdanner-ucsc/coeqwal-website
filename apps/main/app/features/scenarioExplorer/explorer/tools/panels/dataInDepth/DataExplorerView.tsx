@@ -47,6 +47,7 @@ import {
   CLIMATES,
   LOCGROUPS,
   findLocation,
+  defaultLocationId,
 } from "./synthetic/inDepthSyntheticEngine"
 import { useScenarioList } from "../../../../../scenarios/hooks/useScenarioList"
 import {
@@ -399,6 +400,7 @@ export default function DataExplorerView({
           selectedClimates={selectedClimates}
           locationIds={locationIds}
           group={group}
+          pinnedLocation={slice.pinnedLocation[group] ?? defaultLocationId(group)}
           availableToAdd={availableToAdd}
           scenarioName={scenarioName}
           scenarioTheme={getThemeForScenario}
@@ -406,6 +408,7 @@ export default function DataExplorerView({
           onRemoveScenario={removeSelectedScenario}
           onToggleClimate={toggleClimate}
           onToggleLocation={toggleLocation}
+          onSetPinnedLocation={slice.setPinnedLocation}
         />
 
         {/* Chart */}
@@ -571,6 +574,7 @@ interface MemberControlsProps {
   selectedClimates: string[]
   locationIds: string[]
   group: keyof typeof LOCGROUPS
+  pinnedLocation: string
   availableToAdd: { id: string; name: string }[]
   scenarioName: (id: string) => string
   scenarioTheme: (id: string) => string
@@ -578,6 +582,7 @@ interface MemberControlsProps {
   onRemoveScenario: (id: string) => void
   onToggleClimate: (id: string) => void
   onToggleLocation: (group: keyof typeof LOCGROUPS, id: string) => void
+  onSetPinnedLocation: (group: keyof typeof LOCGROUPS, id: string) => void
 }
 
 function MemberControls({
@@ -586,6 +591,7 @@ function MemberControls({
   selectedClimates,
   locationIds,
   group,
+  pinnedLocation,
   availableToAdd,
   scenarioName,
   scenarioTheme,
@@ -593,16 +599,48 @@ function MemberControls({
   onRemoveScenario,
   onToggleClimate,
   onToggleLocation,
+  onSetPinnedLocation,
 }: MemberControlsProps) {
   const theme = useTheme()
 
+  // In Scenario / Climate modes one location is held fixed; this picker chooses
+  // which. Shown only when the variable's group has more than one location
+  // (e.g. reservoirs, basins, stations, rivers). Mirrors the standalone
+  // prototype's per-variable location dropdown.
+  const locationPin =
+    LOCGROUPS[group].items.length > 1 ? (
+      <Box>
+        <Typography
+          variant="caption"
+          sx={{ color: theme.palette.text.secondary, display: "block", mb: 0.5 }}
+        >
+          {LOCGROUPS[group].label}
+        </Typography>
+        <Select
+          size="small"
+          value={pinnedLocation}
+          onChange={(e: SelectChangeEvent) =>
+            onSetPinnedLocation(group, e.target.value)
+          }
+          sx={{ minWidth: 160, fontSize: 13 }}
+        >
+          {LOCGROUPS[group].items.map((l) => (
+            <MenuItem key={l.id} value={l.id} sx={{ fontSize: 13 }}>
+              {l.n}
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
+    ) : null
+
   if (compareBy === "scen") {
     return (
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ flexWrap: "wrap", rowGap: 1, alignItems: "center" }}
-      >
+      <Stack spacing={1.5}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ flexWrap: "wrap", rowGap: 1, alignItems: "center" }}
+        >
         {selectedScenarioIds.map((id) => {
           const isReference = id === PRIMARY_SCENARIO_BASELINE_ID
           // Colour the badge by the scenario's water theme, matching the
@@ -680,27 +718,32 @@ function MemberControls({
               </MenuItem>
             ))}
           </Select>
-        )}
+          )}
+        </Stack>
+        {locationPin}
       </Stack>
     )
   }
 
   if (compareBy === "clim") {
     return (
-      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
-        {CLIMATES.map((c) => {
-          const on = selectedClimates.includes(c.id)
-          return (
-            <Chip
-              key={c.id}
-              size="small"
-              label={c.name}
-              onClick={() => onToggleClimate(c.id)}
-              variant={on ? "filled" : "outlined"}
-              color={on ? "primary" : "default"}
-            />
-          )
-        })}
+      <Stack spacing={1.5}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+          {CLIMATES.map((c) => {
+            const on = selectedClimates.includes(c.id)
+            return (
+              <Chip
+                key={c.id}
+                size="small"
+                label={c.name}
+                onClick={() => onToggleClimate(c.id)}
+                variant={on ? "filled" : "outlined"}
+                color={on ? "primary" : "default"}
+              />
+            )
+          })}
+        </Stack>
+        {locationPin}
       </Stack>
     )
   }
