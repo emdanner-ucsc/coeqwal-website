@@ -47,12 +47,7 @@ import {
   CLIMATES,
   LOCGROUPS,
   findLocation,
-  HYDROCLIMATE_TO_SYNTHETIC_CLIMATE,
 } from "./synthetic/inDepthSyntheticEngine"
-import {
-  ALL_HYDROCLIMATES,
-  HYDROCLIMATE_LABELS_BY_VALUE,
-} from "../../../../../../content/scenarios"
 import { useScenarioList } from "../../../../../scenarios/hooks/useScenarioList"
 import {
   buildMembers,
@@ -95,6 +90,7 @@ export default function DataExplorerView({
     distKind,
     compareBy,
     selectedScenarioIds,
+    pinnedClimate,
     selectedClimates,
     setSelectedVariableId,
     setView,
@@ -140,39 +136,21 @@ export default function DataExplorerView({
   const locationIds =
     slice.selectedLocations[group] ?? defaultSelectedLocations(group)
 
-  // Climate now comes from the shared top-bar "View by climate" chooser, like
-  // every other tab — not a tool-local control. useResolvedSelectedScenarios
-  // exposes the active hydroclimate (and resolves scenarios to short_codes at
-  // it). Map it to the synthetic engine's climate id for the single-climate
-  // (Scenarios / Locations) modes. The slice's `pinnedClimate` is superseded.
-  const { resolvedIds, groupToResolved, hydroclimate } =
-    useResolvedSelectedScenarios()
-  const activeSynthClimate =
-    HYDROCLIMATE_TO_SYNTHETIC_CLIMATE[hydroclimate] ?? "hist"
-  // Climates that actually have data (the chooser's enabled set) as synthetic
-  // ids — gates the "Compare by climate" multi-select so it can't overlay a
-  // coming-soon climate the rest of the site marks unavailable.
-  const availableSynthClimates = new Set(
-    ALL_HYDROCLIMATES.map((hc) => HYDROCLIMATE_TO_SYNTHETIC_CLIMATE[hc]).filter(
-      (id): id is string => Boolean(id),
-    ),
-  )
-  const climatesForChart = selectedClimates.filter((id) =>
-    availableSynthClimates.has(id),
-  )
-
   const syntheticMembers = buildMembers({
     variableId: selectedVariableId,
     view,
     compareBy,
     selectedScenarioIds,
     pinnedScenarioId: slice.pinnedScenarioId,
-    selectedClimates: climatesForChart,
-    pinnedClimate: activeSynthClimate,
+    selectedClimates,
+    pinnedClimate,
     selectedLocations: { ...slice.selectedLocations, [group]: locationIds },
     pinnedLocation: slice.pinnedLocation,
     scenarioName,
   })
+
+  // Resolve the global selection to scenario short_codes at the map hydroclimate.
+  const { resolvedIds, groupToResolved } = useResolvedSelectedScenarios()
 
   // Precomputed CalSim sidecars (annual series reduced from the raw CSV). These
   // carry the FULL series, so they back the exceedance curve AND the box.
@@ -188,33 +166,22 @@ export default function DataExplorerView({
     types: ["storage"],
   })
 
-  // Real (sidecar) data is keyed by scenario + location at the single active
-  // hydroclimate, so it is correct when scenarios or locations vary (each member
-  // resolves to its own real series) but NOT when CLIMATES vary: there is only
-  // one hydroclimate's data to hand, which would be (wrongly) painted onto every
-  // climate. So skip the real overlay in climate-compare — that mode stays
-  // synthetic until per-climate real series are available.
-  const realOverlayApplies = compareBy !== "clim"
   // Layer the real sources over synthetic: precomputed file first (fullest), then
   // the live-API storage box for any member the file didn't cover.
-  const fileMembers = realOverlayApplies
-    ? applyFileSeries(syntheticMembers, {
-        variableId: selectedVariableId,
-        view,
-        sidecars,
-        groupToShortCode: groupToResolved,
-        capForLocation: (locId) => findLocation(group, locId)?.cap,
-      })
-    : syntheticMembers
+  const fileMembers = applyFileSeries(syntheticMembers, {
+    variableId: selectedVariableId,
+    view,
+    sidecars,
+    groupToShortCode: groupToResolved,
+    capForLocation: (locId) => findLocation(group, locId)?.cap,
+  })
   // Monthly views read the raw monthly trace from the same sidecars (ndo, riv_flow).
-  const monthlyMembers = realOverlayApplies
-    ? applyFileMonthly(fileMembers, {
-        variableId: selectedVariableId,
-        view,
-        sidecars,
-        groupToShortCode: groupToResolved,
-      })
-    : fileMembers
+  const monthlyMembers = applyFileMonthly(fileMembers, {
+    variableId: selectedVariableId,
+    view,
+    sidecars,
+    groupToShortCode: groupToResolved,
+  })
   const members = applyLiveStorage(monthlyMembers, {
     variableId: selectedVariableId,
     view,
@@ -430,7 +397,6 @@ export default function DataExplorerView({
           compareBy={compareBy}
           selectedScenarioIds={selectedScenarioIds}
           selectedClimates={selectedClimates}
-          availableClimates={availableSynthClimates}
           locationIds={locationIds}
           group={group}
           availableToAdd={availableToAdd}
@@ -441,23 +407,6 @@ export default function DataExplorerView({
           onToggleClimate={toggleClimate}
           onToggleLocation={toggleLocation}
         />
-
-        {/* In single-climate modes the climate is set by the shared top-bar
-            chooser, not here — surface which one is active. */}
-        {compareBy !== "clim" && (
-          <Typography
-            variant="caption"
-            sx={{
-              display: "block",
-              mt: 0.75,
-              color: theme.palette.text.secondary,
-            }}
-          >
-            Climate:{" "}
-            {HYDROCLIMATE_LABELS_BY_VALUE[hydroclimate] ?? hydroclimate} — set
-            with “View by climate” above.
-          </Typography>
-        )}
 
         {/* Chart */}
         <Box sx={{ mt: 2 }}>
@@ -620,8 +569,6 @@ interface MemberControlsProps {
   compareBy: "scen" | "clim" | "loc"
   selectedScenarioIds: string[]
   selectedClimates: string[]
-  /** Synthetic climate ids that have data (others render disabled / coming soon). */
-  availableClimates: Set<string>
   locationIds: string[]
   group: keyof typeof LOCGROUPS
   availableToAdd: { id: string; name: string }[]
@@ -637,7 +584,6 @@ function MemberControls({
   compareBy,
   selectedScenarioIds,
   selectedClimates,
-  availableClimates,
   locationIds,
   group,
   availableToAdd,
@@ -743,18 +689,13 @@ function MemberControls({
     return (
       <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
         {CLIMATES.map((c) => {
-          // Climates without data (the chooser's coming-soon ones) are shown
-          // disabled here too, so this multi-select can't overlay a climate the
-          // rest of the site marks unavailable.
-          const available = availableClimates.has(c.id)
-          const on = available && selectedClimates.includes(c.id)
+          const on = selectedClimates.includes(c.id)
           return (
             <Chip
               key={c.id}
               size="small"
-              label={available ? c.name : `${c.name} (coming soon)`}
-              onClick={available ? () => onToggleClimate(c.id) : undefined}
-              disabled={!available}
+              label={c.name}
+              onClick={() => onToggleClimate(c.id)}
               variant={on ? "filled" : "outlined"}
               color={on ? "primary" : "default"}
             />
