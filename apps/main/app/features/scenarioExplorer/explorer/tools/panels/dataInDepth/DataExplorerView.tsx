@@ -204,12 +204,18 @@ export default function DataExplorerView({
   const unit = memberUnit(selectedVariableId, view)
   // Y-axis title for the charts (figures are exported as SVG, so they should be
   // self-describing): quantity + unit, except the derived % / CV views.
+  // Reservoir storage's variable names are month-specific (April / September), but
+  // its monthly + time-series views plot the full storage trace — so drop the month.
+  const isReservoirStorage = variable.kindId === "storage"
+  const isMonthlyTrace = view === "monthly" || view === "series"
   const yAxisLabel =
     view === "pct"
       ? `${variable.name} (% of capacity)`
       : view === "cv"
         ? "Year-to-year variability (CV, %)"
-        : `${variable.name} (${unit})`
+        : isReservoirStorage && isMonthlyTrace
+          ? `Reservoir storage (${unit})`
+          : `${variable.name} (${unit})`
   const isDistribution = view === "dist" || view === "pct"
   const fileActive = hasFileMember(members)
   const boxIsLive =
@@ -292,6 +298,19 @@ export default function DataExplorerView({
           backgroundColor: theme.palette.background.paper,
         }}
       >
+        <Typography
+          variant="overline"
+          sx={{
+            display: "block",
+            px: 1,
+            mb: 1,
+            color: theme.palette.text.primary,
+            fontWeight: 700,
+            lineHeight: 1.4,
+          }}
+        >
+          Outcome sectors
+        </Typography>
         {SECTORS.map((sector) => (
           <Box key={sector.id} sx={{ mb: 1.5 }}>
             <Typography

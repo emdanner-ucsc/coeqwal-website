@@ -129,10 +129,10 @@ export const VARDEF: Record<InDepthVariableId, InDepthVariable> = {
     kindId: "storage",
     effectFamily: "storage",
     unit: "TAF",
-    views: ["dist", "pct", "cv"],
+    views: ["dist", "pct", "monthly", "series", "cv"],
     plain:
-      "How full each major reservoir is at the start of April — the end of the wet season, when storage is normally near its peak.",
-    tech: "Annual series of end-of-April storage (CalSim3 S_* variables), summarized as percentiles across the simulation period. Also available as percent of capacity.",
+      "How full each major reservoir is at the start of April — the end of the wet season, when storage is normally near its peak. The monthly views show the full storage cycle through the year, not just April.",
+    tech: "Annual series of end-of-April storage (CalSim3 S_* variables), summarized as percentiles across the simulation period. Also available as percent of capacity. The monthly pattern and time-series views plot the full reservoir storage trace (all months).",
   },
   res_sep: {
     name: "September reservoir storage",
@@ -142,10 +142,10 @@ export const VARDEF: Record<InDepthVariableId, InDepthVariable> = {
     effectFamily: "storage",
     unit: "TAF",
     useSepBonus: true,
-    views: ["dist", "pct", "cv"],
+    views: ["dist", "pct", "monthly", "series", "cv"],
     plain:
-      "How much water is left in each reservoir at the end of the dry season (carryover storage) — a key buffer against the next year being dry.",
-    tech: "Annual series of end-of-September storage, summarized as percentiles. Carryover-targeted scenarios act mainly on this variable.",
+      "How much water is left in each reservoir at the end of the dry season (carryover storage) — a key buffer against the next year being dry. The monthly views show the full storage cycle through the year, not just September.",
+    tech: "Annual series of end-of-September storage, summarized as percentiles. Carryover-targeted scenarios act mainly on this variable. The monthly pattern and time-series views plot the full reservoir storage trace (all months).",
   },
   gw_vol: {
     name: "Groundwater storage volume",
