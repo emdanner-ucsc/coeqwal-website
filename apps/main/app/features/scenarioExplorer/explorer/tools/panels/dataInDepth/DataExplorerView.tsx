@@ -32,6 +32,10 @@ import {
   Alert,
   Select,
   MenuItem,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  ExpandMoreIcon,
   type SelectChangeEvent,
 } from "@repo/ui/mui"
 import { ScenarioBadge } from "@repo/ui"
@@ -47,6 +51,7 @@ import {
   CLIMATES,
   LOCGROUPS,
   findLocation,
+  findClimate,
   defaultLocationId,
 } from "./synthetic/inDepthSyntheticEngine"
 import { useScenarioList } from "../../../../../scenarios/hooks/useScenarioList"
@@ -74,6 +79,11 @@ import {
   downloadMembersCsv,
   downloadChartSvg,
 } from "./utils/inDepthChartExport"
+import {
+  summaryText,
+  howToRead,
+  NO_DECOMPOSITION_TEXT,
+} from "./utils/inDepthExplain"
 
 interface DataExplorerViewProps {
   onNavigateToExplorer?: () => void
@@ -197,6 +207,31 @@ export default function DataExplorerView({
   const boxIsLive =
     distKind === "box" && isDistribution && hasLiveMember(members)
   const innerBandLabel = members[0]?.box.innerLabel ?? "25th–75th"
+
+  // Plain-language explainers (parity with the standalone prototype). The
+  // auto-summary sentence reads percent changes vs. current operations; the
+  // three expanders surface the metric definition, a view-specific reading
+  // guide, and the no-decomposition stance (concept #17).
+  const pinnedLocationId =
+    slice.pinnedLocation[group] ?? defaultLocationId(group)
+  const summarySegments = summaryText({
+    members,
+    variableId: selectedVariableId,
+    variableName: variable.name,
+    view,
+    compareBy,
+    unit,
+    baselineScenarioId: PRIMARY_SCENARIO_BASELINE_ID,
+    locationName: findLocation(group, pinnedLocationId)?.n ?? pinnedLocationId,
+    climateName: findClimate(pinnedClimate)?.name ?? pinnedClimate,
+    scenarioName: scenarioName(slice.pinnedScenarioId),
+  })
+  const howToReadText = howToRead(
+    view,
+    distKind,
+    members[0]?.series.length ?? 0,
+    innerBandLabel,
+  )
 
   // Export (build-order step 5): CSV of the plotted members + SVG of the chart.
   // `chartRef` wraps the chart area so the SVG capture targets the right SVG(s).
@@ -400,7 +435,9 @@ export default function DataExplorerView({
           selectedClimates={selectedClimates}
           locationIds={locationIds}
           group={group}
-          pinnedLocation={slice.pinnedLocation[group] ?? defaultLocationId(group)}
+          pinnedLocation={
+            slice.pinnedLocation[group] ?? defaultLocationId(group)
+          }
           availableToAdd={availableToAdd}
           scenarioName={scenarioName}
           scenarioTheme={getThemeForScenario}
@@ -445,6 +482,30 @@ export default function DataExplorerView({
                   Download chart (SVG)
                 </Button>
               </Stack>
+              {summarySegments.length > 0 && (
+                <Typography
+                  variant="body2"
+                  sx={{ mb: 1.5, color: theme.palette.text.primary }}
+                >
+                  {summarySegments.map((seg, i) => (
+                    <Box
+                      key={i}
+                      component="span"
+                      sx={{
+                        fontWeight: seg.bold ? 650 : 400,
+                        color:
+                          seg.delta === "up"
+                            ? theme.palette.success.dark
+                            : seg.delta === "down"
+                              ? theme.palette.error.dark
+                              : "inherit",
+                      }}
+                    >
+                      {seg.text}
+                    </Box>
+                  ))}
+                </Typography>
+              )}
               <Box ref={chartRef}>
                 {isDistribution ? (
                   <>
@@ -509,6 +570,40 @@ export default function DataExplorerView({
                   </>
                 )}
               </Box>
+
+              {/* Plain-language explainers (prototype parity) */}
+              <Box sx={{ mt: 2 }}>
+                <ExplainerAccordion title="What is this metric?">
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    {variable.plain}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: theme.palette.text.secondary }}
+                  >
+                    <Box component="span" sx={{ fontWeight: 650 }}>
+                      Technical:
+                    </Box>{" "}
+                    {variable.tech} Units: {unit}.
+                  </Typography>
+                </ExplainerAccordion>
+
+                <ExplainerAccordion title="How do I read this chart?">
+                  <Typography variant="body2">{howToReadText}</Typography>
+                </ExplainerAccordion>
+
+                <ExplainerAccordion title="Why is there no climate-vs-operations breakdown here?">
+                  {NO_DECOMPOSITION_TEXT.map((para, i) => (
+                    <Typography
+                      key={i}
+                      variant="body2"
+                      sx={{ mb: i < NO_DECOMPOSITION_TEXT.length - 1 ? 1 : 0 }}
+                    >
+                      {para}
+                    </Typography>
+                  ))}
+                </ExplainerAccordion>
+              </Box>
             </>
           )}
         </Box>
@@ -540,6 +635,49 @@ function ChartSourceNote({ fileActive }: { fileActive: boolean }) {
         ? "Real CalSim 3 data (precomputed from raw output)."
         : "Synthetic stand-in data."}
     </Typography>
+  )
+}
+
+/** Flat, low-chrome expander for the plain-language explainers. */
+function ExplainerAccordion({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  const theme = useTheme()
+  return (
+    <Accordion
+      disableGutters
+      elevation={0}
+      square
+      sx={{
+        backgroundColor: "transparent",
+        borderTop: theme.border.light,
+        "&:last-of-type": { borderBottom: theme.border.light },
+        "&:before": { display: "none" },
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon sx={{ color: theme.palette.grey[500] }} />}
+        sx={{
+          px: 0,
+          minHeight: 0,
+          "& .MuiAccordionSummary-content": { my: 1 },
+        }}
+      >
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: 600, color: theme.palette.blue.darkest }}
+        >
+          {title}
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails sx={{ px: 0, pt: 0, pb: 1.5, maxWidth: 760 }}>
+        {children}
+      </AccordionDetails>
+    </Accordion>
   )
 }
 
@@ -612,7 +750,11 @@ function MemberControls({
       <Box>
         <Typography
           variant="caption"
-          sx={{ color: theme.palette.text.secondary, display: "block", mb: 0.5 }}
+          sx={{
+            color: theme.palette.text.secondary,
+            display: "block",
+            mb: 0.5,
+          }}
         >
           {LOCGROUPS[group].label}
         </Typography>
@@ -641,83 +783,83 @@ function MemberControls({
           spacing={1}
           sx={{ flexWrap: "wrap", rowGap: 1, alignItems: "center" }}
         >
-        {selectedScenarioIds.map((id) => {
-          const isReference = id === PRIMARY_SCENARIO_BASELINE_ID
-          // Colour the badge by the scenario's water theme, matching the
-          // sidebar accordion headers / theme subheaders elsewhere on the site.
-          const wt =
-            theme.palette.waterThemes[
-              scenarioTheme(id) as keyof typeof theme.palette.waterThemes
-            ] ?? theme.palette.waterThemes.unthemed
-          return (
-            <Box
-              key={id}
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 0.5,
-                border: theme.border.light,
-                borderRadius: "4px",
-                pl: 0.5,
-                pr: isReference ? 0.75 : 0.25,
-                py: 0.25,
-                backgroundColor: theme.palette.background.paper,
-              }}
+          {selectedScenarioIds.map((id) => {
+            const isReference = id === PRIMARY_SCENARIO_BASELINE_ID
+            // Colour the badge by the scenario's water theme, matching the
+            // sidebar accordion headers / theme subheaders elsewhere on the site.
+            const wt =
+              theme.palette.waterThemes[
+                scenarioTheme(id) as keyof typeof theme.palette.waterThemes
+              ] ?? theme.palette.waterThemes.unthemed
+            return (
+              <Box
+                key={id}
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  border: theme.border.light,
+                  borderRadius: "4px",
+                  pl: 0.5,
+                  pr: isReference ? 0.75 : 0.25,
+                  py: 0.25,
+                  backgroundColor: theme.palette.background.paper,
+                }}
+              >
+                <ScenarioBadge
+                  label={scenarioName(id)}
+                  backgroundColor={wt.background}
+                  color={wt.text}
+                />
+                {isReference ? (
+                  <Typography
+                    component="span"
+                    variant="caption"
+                    sx={{
+                      color: theme.palette.text.secondary,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    reference
+                  </Typography>
+                ) : (
+                  <IconButton
+                    size="small"
+                    aria-label={`Remove ${scenarioName(id)}`}
+                    onClick={() => onRemoveScenario(id)}
+                    sx={{
+                      p: 0,
+                      width: 16,
+                      height: 16,
+                      fontSize: 15,
+                      lineHeight: 1,
+                      color: theme.palette.text.secondary,
+                      "&:hover": { color: theme.palette.text.primary },
+                    }}
+                  >
+                    ×
+                  </IconButton>
+                )}
+              </Box>
+            )
+          })}
+          {selectedScenarioIds.length < 5 && availableToAdd.length > 0 && (
+            <Select
+              size="small"
+              value=""
+              displayEmpty
+              onChange={(e: SelectChangeEvent) => onAddScenario(e.target.value)}
+              sx={{ minWidth: 160, fontSize: 13 }}
             >
-              <ScenarioBadge
-                label={scenarioName(id)}
-                backgroundColor={wt.background}
-                color={wt.text}
-              />
-              {isReference ? (
-                <Typography
-                  component="span"
-                  variant="caption"
-                  sx={{
-                    color: theme.palette.text.secondary,
-                    fontStyle: "italic",
-                  }}
-                >
-                  reference
-                </Typography>
-              ) : (
-                <IconButton
-                  size="small"
-                  aria-label={`Remove ${scenarioName(id)}`}
-                  onClick={() => onRemoveScenario(id)}
-                  sx={{
-                    p: 0,
-                    width: 16,
-                    height: 16,
-                    fontSize: 15,
-                    lineHeight: 1,
-                    color: theme.palette.text.secondary,
-                    "&:hover": { color: theme.palette.text.primary },
-                  }}
-                >
-                  ×
-                </IconButton>
-              )}
-            </Box>
-          )
-        })}
-        {selectedScenarioIds.length < 5 && availableToAdd.length > 0 && (
-          <Select
-            size="small"
-            value=""
-            displayEmpty
-            onChange={(e: SelectChangeEvent) => onAddScenario(e.target.value)}
-            sx={{ minWidth: 160, fontSize: 13 }}
-          >
-            <MenuItem value="" disabled>
-              + Add scenario
-            </MenuItem>
-            {availableToAdd.map((s) => (
-              <MenuItem key={s.id} value={s.id} sx={{ fontSize: 13 }}>
-                {s.name}
+              <MenuItem value="" disabled>
+                + Add scenario
               </MenuItem>
-            ))}
-          </Select>
+              {availableToAdd.map((s) => (
+                <MenuItem key={s.id} value={s.id} sx={{ fontSize: 13 }}>
+                  {s.name}
+                </MenuItem>
+              ))}
+            </Select>
           )}
         </Stack>
         {locationPin}
