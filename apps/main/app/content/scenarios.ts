@@ -356,6 +356,13 @@ export const CURRENT_OPERATIONS_ICONS: OperationIcon[] = [
 // Hydroclimate options
 // =============================================================================
 
+// Order is severity (Historical -> Extreme). `ecearth` and `taiesm1` are
+// COMING SOON: their runs do not exist yet, so they are intentionally OMITTED
+// from HYDROCLIMATE_ID_MAP below. The shared HydroclimateChooser treats any
+// option not in that map as greyed-out / "Coming soon" automatically. When the
+// data lands, add each to HYDROCLIMATE_ID_MAP / HYDROCLIMATE_LABEL_MAP with its
+// API hydroclimate_id and extract its CalSim sidecars; the `value` strings here
+// must then match the API's hydroclimate string.
 export const hydroclimateOptions: HydroclimateOption[] = [
   {
     value: "historical",
@@ -364,8 +371,14 @@ export const hydroclimateOptions: HydroclimateOption[] = [
       "Temperature, precipitation, and streamflow patterns reflect historical conditions",
   },
   {
+    value: "ecearth",
+    label: "Moderate risk",
+    description:
+      "Warmer and somewhat wetter (+1.2 \u00b0C; LOCA2 EC-Earth3-Veg SSP370, ~44% level of concern)",
+  },
+  {
     value: "cc50",
-    label: "Moderate-dry climate risk",
+    label: "Moderate-high risk",
     description:
       "50th percentile level of concern: warmer and slightly drier conditions (\u22121% runoff change)",
   },
@@ -375,12 +388,18 @@ export const hydroclimateOptions: HydroclimateOption[] = [
     description:
       "95th percentile level of concern: warmer and much drier conditions (\u22127% runoff change)",
   },
+  {
+    value: "taiesm1",
+    label: "Extreme climate risk",
+    description:
+      "Much warmer and much drier (+1.9 \u00b0C, \u22127.2% precipitation; LOCA2 TaiESM1 SSP370)",
+  },
 ]
 
 /** Hydroclimate labels for the discrete slider */
 export const hydroclimateLabels = [
   "Historical",
-  "Moderate-dry climate risk",
+  "Moderate-high risk",
   "High climate risk",
 ]
 
@@ -391,8 +410,10 @@ export const hydroclimateLabels = [
  */
 export const HYDROCLIMATE_SHORT_LABELS: Record<string, string> = {
   historical: "Historical",
-  cc50: "Moderate risk",
+  ecearth: "Moderate risk",
+  cc50: "Moderate-high risk",
   cc95: "High risk",
+  taiesm1: "Extreme risk",
 }
 
 /** Full display label keyed by hydroclimate value (e.g. `"historical"` -> `"Historical"`) */

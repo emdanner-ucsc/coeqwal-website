@@ -31,6 +31,15 @@ export type {
   AggregateScope,
   ResilienceControlFields,
 } from "./resilienceStoreSlice"
+export { MAX_IN_DEPTH_SCENARIOS } from "./dataInDepthStoreSlice"
+export type {
+  DataInDepthSlice,
+  DataInDepthState,
+  DataInDepthActions,
+  DistKind,
+  CompareBy,
+  ScenarioMenuGrouping,
+} from "./dataInDepthStoreSlice"
 
 export type { ExplorerStore } from "./storeInstance"
 export { useExplorerStore } from "./storeInstance"
@@ -41,6 +50,7 @@ export {
   useRadarSlice,
   useEquitySlice,
   useResilienceSlice,
+  useDataInDepthSlice,
 } from "./useToolSlices"
 
 export {

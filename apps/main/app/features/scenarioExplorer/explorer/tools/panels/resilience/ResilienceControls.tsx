@@ -982,17 +982,23 @@ export default function ResilienceControls({
               active={allHcsSelected}
               onClick={toggleShowAllHcs}
             />
-            {hydroclimateOptions.map((opt) => {
-              const hc = opt.value as ResilienceHydroclimate
-              return (
-                <InlineToggleChip
-                  key={opt.value}
-                  label={HYDROCLIMATE_SHORT_LABELS[hc] ?? opt.label}
-                  active={selectedHydroclimates.has(hc)}
-                  onClick={() => toggleHydroclimate(hc)}
-                />
+            {hydroclimateOptions
+              .filter((opt) =>
+                (RESILIENCE_HYDROCLIMATES as readonly string[]).includes(
+                  opt.value,
+                ),
               )
-            })}
+              .map((opt) => {
+                const hc = opt.value as ResilienceHydroclimate
+                return (
+                  <InlineToggleChip
+                    key={opt.value}
+                    label={HYDROCLIMATE_SHORT_LABELS[hc] ?? opt.label}
+                    active={selectedHydroclimates.has(hc)}
+                    onClick={() => toggleHydroclimate(hc)}
+                  />
+                )
+              })}
           </Box>
         </PopoverShell>
       </Popover>
