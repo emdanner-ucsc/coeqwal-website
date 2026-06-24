@@ -201,9 +201,11 @@ export interface CalsimSidecar {
   /** variableId -> locationId -> annual series (one value per water year). */
   series: Record<string, Record<string, number[]> | undefined>
   /**
-   * variableId -> locationId -> raw NYEARS×12 monthly trace (monthly volume in
-   * TAF, water-year order, month 0 = Oct). Present only for the monthly-capable
-   * flow variables (ndo, riv_flow); absent otherwise.
+   * variableId -> locationId -> raw NYEARS×12 monthly trace (water-year order,
+   * month 0 = Oct). For the flow variables (ndo, riv_flow) the trace is monthly
+   * VOLUME in TAF; for reservoir storage (res_apr, res_sep — which share one
+   * full 12-month trace) it is the month-end STORAGE LEVEL in TAF. Absent for
+   * variables that aren't column-mapped yet.
    */
   monthly?: Record<string, Record<string, number[]> | undefined>
 }
@@ -309,11 +311,12 @@ export function applyFileSeries(
 // ----------------------------------------------------------------------------
 // Precomputed CalSim sidecar — monthly trace (file)
 //
-// The sidecar's `monthly` block carries the raw NYEARS×12 monthly volume (TAF)
-// for the monthly-capable flow variables (ndo, riv_flow). It powers the two
-// monthly views: the climatology band (p10/p50/p90 across years, per water-year
-// month) and the raw time-series trace. Same units as the synthetic monthly
-// engine (a month's share of the annual volume, in TAF), so the chart axis is
+// The sidecar's `monthly` block carries the raw NYEARS×12 monthly trace for the
+// flow variables (ndo, riv_flow — monthly VOLUME in TAF) and for reservoir
+// storage (res_apr, res_sep — month-end STORAGE LEVEL in TAF, one shared
+// full-year trace). It powers the two monthly views: the climatology band
+// (p10/p50/p90 across years, per water-year month) and the raw time-series
+// trace. Units match the synthetic monthly engine, so the chart axis is
 // unchanged. Variables without a monthly block keep their synthetic monthly.
 // ----------------------------------------------------------------------------
 
