@@ -355,14 +355,14 @@ export default function TierAnimationSection() {
     }> = []
     if (cc50VariantId) {
       cols.push({
-        label: "Moderate risk",
+        label: "Moderate-high climate stress",
         scenarioId: cc50VariantId,
         tierChartData: cc50ChartData,
       })
     }
     if (cc95VariantId) {
       cols.push({
-        label: "High risk",
+        label: "High climate stress",
         scenarioId: cc95VariantId,
         tierChartData: cc95ChartData,
       })

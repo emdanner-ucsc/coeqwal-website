@@ -27,7 +27,7 @@ export const HYDROCLIMATE_CONFIG: Record<string, HydroclimateVisualConfig> = {
     icon: HistoryIcon,
     bgColor: "#2d89b7",
   },
-  // ecearth (Moderate risk) is COMING SOON — renders greyed-out until it has
+  // ecearth (Moderate climate stress) is COMING SOON — renders greyed-out until it has
   // data. Icon/color are provisional design defaults; change here to retheme.
   ecearth: {
     icon: CloudIcon,
@@ -41,7 +41,7 @@ export const HYDROCLIMATE_CONFIG: Record<string, HydroclimateVisualConfig> = {
     icon: LocalFireDepartmentIcon,
     bgColor: "#c62828",
   },
-  // taiesm1 (Extreme climate risk) is COMING SOON. Provisional icon/color —
+  // taiesm1 (Extreme climate stress) is COMING SOON. Provisional icon/color —
   // reuses the flame at a deeper red to read as "beyond High"; retheme here.
   taiesm1: {
     icon: LocalFireDepartmentIcon,

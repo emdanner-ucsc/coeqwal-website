@@ -17,29 +17,31 @@ type Model = {
 
 const models: Model[] = [
   {
-    model: "Moderate climate risk",
+    model: "Moderate-high climate stress",
     background: "#c28433",
     hover: "rgb(160, 101, 25)",
     text: "#fcfbfa",
   },
   {
-    model: "High climate risk",
+    model: "High climate stress",
     background: "#a72525",
     hover: "#961919",
     text: "#fcfbfa",
   },
   {
-    model: "Extreme climate risk",
+    model: "Extreme climate stress",
     background: "#5c0b0b",
     hover: "#460909",
     text: "#fcfbfa",
   },
 ]
 
+// Display names (climate-stress scale, adopted 2026-07-16) -> keys used in
+// data/hydroclimate_streamflow_change.json (unchanged legacy data keys).
 const modelQueryMap: Record<string, string> = {
-  "Moderate climate risk": "Warmer & Drier I",
-  "High climate risk": "Warmer & Drier II",
-  "Extreme climate risk": "Warmer & Drier III",
+  "Moderate-high climate stress": "Warmer & Drier I",
+  "High climate stress": "Warmer & Drier II",
+  "Extreme climate stress": "Warmer & Drier III",
 }
 
 export default function HydroClimateContainer() {

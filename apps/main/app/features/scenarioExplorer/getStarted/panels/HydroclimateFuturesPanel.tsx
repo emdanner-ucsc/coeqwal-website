@@ -12,24 +12,24 @@ const HYDROCLIMATES = [
       "Temperature, precipitation, and streamflow patterns reflect historical conditions",
   },
   {
-    title: "Moderate-dry climate risk",
+    title: "Moderate climate stress",
+    description:
+      "Slightly warmer and wetter conditions (+7% runoff change) - 40th percentile level of concern",
+  },
+  {
+    title: "Moderate-high climate stress",
     description:
       "Warmer and slightly drier conditions (\u22121% runoff change) - 50th percentile level of concern",
   },
   {
-    title: "Moderate-wet climate risk",
+    title: "High climate stress",
     description:
-      "Warmer and wetter conditions (+7% runoff change) - 44th percentile level of concern",
+      "Much warmer and much drier conditions (\u22127% runoff change) - 95th percentile level of concern",
   },
   {
-    title: "High climate risk",
+    title: "Extreme climate stress",
     description:
-      "Warmer and much drier conditions (\u22127% runoff change) - 95th percentile level of concern",
-  },
-  {
-    title: "Extreme climate risk",
-    description:
-      "Much warmer and extremely drier conditions (\u221221% runoff change) - 99th percentile level of concern",
+      "Warmer and substantially drier conditions (\u221219% runoff change) - 99th percentile level of concern",
   },
 ] as const
 

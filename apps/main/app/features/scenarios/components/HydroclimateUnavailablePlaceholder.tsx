@@ -10,7 +10,7 @@
  * - `block`, for empty panels (radar, equity, key outcomes)
  *
  * Pass `groupId` when known so the tooltip can name the specific scenario
- * (e.g. "s0020 has not been run with the High climate risk hydroclimate").
+ * (e.g. "s0020 has not been run with the High climate stress hydroclimate").
  */
 
 import React from "react"

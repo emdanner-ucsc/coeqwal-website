@@ -372,35 +372,35 @@ export const hydroclimateOptions: HydroclimateOption[] = [
   },
   {
     value: "ecearth",
-    label: "Moderate risk",
+    label: "Moderate climate stress",
     description:
-      "Warmer and somewhat wetter (+1.2 \u00b0C; LOCA2 EC-Earth3-Veg SSP370, ~44% level of concern)",
+      "40th percentile level of concern: slightly warmer and wetter conditions (+7% runoff change; LOCA2 EC-Earth3-Veg SSP370)",
   },
   {
     value: "cc50",
-    label: "Moderate-high risk",
+    label: "Moderate-high climate stress",
     description:
       "50th percentile level of concern: warmer and slightly drier conditions (\u22121% runoff change)",
   },
   {
     value: "cc95",
-    label: "High climate risk",
+    label: "High climate stress",
     description:
-      "95th percentile level of concern: warmer and much drier conditions (\u22127% runoff change)",
+      "95th percentile level of concern: much warmer and much drier conditions (\u22127% runoff change)",
   },
   {
     value: "taiesm1",
-    label: "Extreme climate risk",
+    label: "Extreme climate stress",
     description:
-      "Much warmer and much drier (+1.9 \u00b0C, \u22127.2% precipitation; LOCA2 TaiESM1 SSP370)",
+      "99th percentile level of concern: warmer and substantially drier conditions (\u221219% runoff change; LOCA2 TaiESM1 SSP370)",
   },
 ]
 
 /** Hydroclimate labels for the discrete slider */
 export const hydroclimateLabels = [
   "Historical",
-  "Moderate-high risk",
-  "High climate risk",
+  "Moderate-high climate stress",
+  "High climate stress",
 ]
 
 /**
@@ -410,10 +410,10 @@ export const hydroclimateLabels = [
  */
 export const HYDROCLIMATE_SHORT_LABELS: Record<string, string> = {
   historical: "Historical",
-  ecearth: "Moderate risk",
-  cc50: "Moderate-high risk",
-  cc95: "High risk",
-  taiesm1: "Extreme risk",
+  ecearth: "Moderate stress",
+  cc50: "Moderate-high stress",
+  cc95: "High stress",
+  taiesm1: "Extreme stress",
 }
 
 /** Full display label keyed by hydroclimate value (e.g. `"historical"` -> `"Historical"`) */

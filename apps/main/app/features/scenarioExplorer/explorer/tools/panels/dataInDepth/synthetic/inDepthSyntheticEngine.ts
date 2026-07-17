@@ -38,33 +38,33 @@ export interface SyntheticClimate {
 export const CLIMATES: SyntheticClimate[] = [
   {
     id: "hist",
-    name: "Historical",
+    name: "Historical hydroclimate",
     stress: 0.0,
-    desc: "Historical temperature and precipitation over Central Valley inflow basins (DWR DCR2023 baseline).",
+    desc: "Temperature, precipitation, and streamflow patterns reflect historical conditions (DWR DCR2023 baseline).",
   },
   {
     id: "mod",
-    name: "Moderate risk",
+    name: "Moderate climate stress",
     stress: 0.15,
-    desc: "+1.2 °C, somewhat wetter (LOCA2 EC-Earth3-Veg SSP370; 44% level-of-concern).",
+    desc: "Slightly warmer and wetter conditions (+7% runoff change; LOCA2 EC-Earth3-Veg SSP370, 40th percentile level of concern).",
   },
   {
     id: "modhigh",
-    name: "Moderate-high risk",
+    name: "Moderate-high climate stress",
     stress: 0.4,
-    desc: "+1.5 °C, −1.5% precipitation (DWR WGEN 50th percentile level-of-concern, CC50).",
+    desc: "Warmer and slightly drier conditions (−1% runoff change; DWR WGEN CC50, 50th percentile level of concern).",
   },
   {
     id: "high",
-    name: "High risk",
+    name: "High climate stress",
     stress: 0.7,
-    desc: "+1.8 °C, slight precipitation decline (DWR WGEN 95th percentile level-of-concern, CC95).",
+    desc: "Much warmer and much drier conditions (−7% runoff change; DWR WGEN CC95, 95th percentile level of concern).",
   },
   {
     id: "extreme",
-    name: "Extreme risk",
+    name: "Extreme climate stress",
     stress: 1.0,
-    desc: "+1.9 °C, −7.2% precipitation (LOCA2 TaiESM1 SSP370).",
+    desc: "Warmer and substantially drier conditions (−19% runoff change; LOCA2 TaiESM1 SSP370, 99th percentile level of concern).",
   },
 ]
 
